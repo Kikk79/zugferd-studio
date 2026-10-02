@@ -14,3 +14,4 @@ RE 379*.pdf
 *.doc
 *.docx
 dist_build/
+dist_onedir/

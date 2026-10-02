@@ -41,7 +41,7 @@ nicht durch einen Platzhalter ersetzt, sondern die Erstellung blockiert.
   Positionstabelle. Immer die Felder und Summen kontrollieren – die Oberfläche zeigt Abweichungen an.
 - Gescannte PDFs (nur Bild) werden nicht erkannt (keine OCR).
 - Keine Gutschriften (Typ 381), keine Rabatte/Zuschläge auf Dokumentebene (als negative Position erfassen),
-  keine Steuerbefreiungsgründe, kein XRechnung-Profil.
+  kein XRechnung-Profil.
 - Die strikte **PDF/A-3-Konformität** wurde nicht mit veraPDF geprüft. Das XML ist XSD- und
   Schematron-geprüft; das PDF übernimmt die Eigenschaften des Ausgangs-PDFs (Word-Export wird als PDF/A-1 erzeugt).
 - Bei Auslandsrechnungen (z. B. CH mit 8,1 % MwSt.) werden die Zahlen korrekt übernommen, die steuerliche
@@ -56,10 +56,22 @@ nicht durch einen Platzhalter ersetzt, sondern die Erstellung blockiert.
 
 ## Als .exe bauen
 
-`build.bat` ausführen (führt zuerst die Tests aus, dann PyInstaller) → `dist\ZUGFeRD-Studio.exe`.
-Die `.exe` ist eigenständig; Java (Regelprüfung) und Microsoft Word (DOC/DOCX) müssen auf dem Rechner
-vorhanden sein, falls diese Funktionen genutzt werden. Hochgeladene Dateien liegen dann in `storage\` neben der `.exe`.
+`build.bat` ausführen (führt zuerst die Tests aus, dann PyInstaller) → `dist\ZUGFeRD-Studio\` (Ordner,
+nicht nur eine Datei) plus `dist\ZUGFeRD-Studio-windows.zip` zur Weitergabe. Java (Regelprüfung) und
+Microsoft Word (DOC/DOCX) müssen auf dem Zielrechner vorhanden sein, falls diese Funktionen genutzt werden.
+Hochgeladene Dateien liegen dann in `storage\` neben `ZUGFeRD-Studio.exe`.
 Tests, die auf die echte Beispielrechnung zugreifen (`TR 393 ….pdf`), werden übersprungen, wenn die Datei fehlt.
+
+**Warum ein Ordner statt einer einzelnen .exe:** Eine einzelne selbstentpackende `--onefile`-Datei
+entspricht genau dem Muster, das Antivirus-Heuristiken (v. a. Microsofts ML-Erkennung) häufig als
+Dropper fehlklassifizieren – unabhängig vom tatsächlichen Code. Das Ordner-Layout (`--onedir`) mit
+eingebetteter Versionsinfo (`version_info.txt`) senkt das Risiko deutlich: Beim mit VirusTotal
+geprüften Build meldeten 2 von 75 Scannern einen heuristischen Treffer (Microsofts generisches
+`Trojan:Win32/Wacatac.B!ml`, ein bekannter Fehlalarm-Sammelbegriff bei unsignierten PyInstaller-Programmen,
+und ein ebenso unspezifischer Treffer von APEX) – keiner nannte eine konkrete Malware-Familie.
+Der zuverlässige, vollständige Fix ist eine **Codesignatur** mit einem echten Zertifikat (kostenpflichtig,
+mit Identitätsprüfung); ohne Signatur bleibt bei PyInstaller-Programmen ein Restrisiko für
+Heuristik-Fehlalarme bestehen, egal wie der Code aussieht.
 
 Dateien: `app.py` (API) · `extractor.py` (Texterkennung) · `invoice_logic.py` (Berechnung/Validierung) ·
 `zugferd_generator.py` (XML + Einbettung) · `schematron.py` (Geschäftsregeln) · `pdf_renderer.py` (Muster-PDF, Word-Konvertierung).

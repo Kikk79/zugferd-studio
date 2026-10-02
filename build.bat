@@ -1,5 +1,6 @@
 @echo off
-REM Baut dist\ZUGFeRD-Studio.exe (PyInstaller, eine einzelne Datei)
+REM Baut dist\ZUGFeRD-Studio\ (PyInstaller, Ordner-Layout statt einer einzelnen
+REM selbstentpackenden .exe - das senkt Fehlalarme bei Antivirus-Heuristiken)
 cd /d "%~dp0"
 
 IF NOT EXIST ".venv\Scripts\python.exe" (
@@ -12,7 +13,8 @@ echo Teste vor dem Build...
 .venv\Scripts\python.exe -m pytest -q -W ignore
 IF ERRORLEVEL 1 ( echo Tests fehlgeschlagen - Build abgebrochen. & pause & exit /b 1 )
 
-.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onefile --name ZUGFeRD-Studio --icon ../static/icon.ico ^
+.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onedir --name ZUGFeRD-Studio ^
+  --icon ../static/icon.ico --version-file ../version_info.txt --noupx ^
   --distpath dist --workpath build\pyi --specpath build ^
   --add-data "../static;static" --add-data "../tools;tools" ^
   --collect-all facturx --collect-data iso4217 --collect-data reportlab --collect-submodules uvicorn ^
@@ -21,5 +23,9 @@ IF ERRORLEVEL 1 ( echo Tests fehlgeschlagen - Build abgebrochen. & pause & exit 
 IF ERRORLEVEL 1 ( echo Build fehlgeschlagen. & pause & exit /b 1 )
 
 echo.
-echo Fertig: dist\ZUGFeRD-Studio.exe
+echo Fertig: dist\ZUGFeRD-Studio\ZUGFeRD-Studio.exe
+echo ^(Ordner als Ganzes weitergeben - nicht nur die .exe^)
+echo Erzeuge zip fuer die Weitergabe...
+powershell -NoProfile -Command "Compress-Archive -Path 'dist\ZUGFeRD-Studio' -DestinationPath 'dist\ZUGFeRD-Studio-windows.zip' -Force"
+echo Fertig: dist\ZUGFeRD-Studio-windows.zip
 pause
