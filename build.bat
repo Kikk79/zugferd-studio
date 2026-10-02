@@ -12,7 +12,7 @@ echo Teste vor dem Build...
 .venv\Scripts\python.exe -m pytest -q -W ignore
 IF ERRORLEVEL 1 ( echo Tests fehlgeschlagen - Build abgebrochen. & pause & exit /b 1 )
 
-.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onefile --name ZUGFeRD-Studio ^
+.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onefile --name ZUGFeRD-Studio --icon ../static/icon.ico ^
   --distpath dist --workpath build\pyi --specpath build ^
   --add-data "../static;static" --add-data "../tools;tools" ^
   --collect-all facturx --collect-data iso4217 --collect-data reportlab --collect-submodules uvicorn ^
