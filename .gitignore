@@ -13,3 +13,4 @@ TR 393*.pdf
 RE 379*.pdf
 *.doc
 *.docx
+dist_build/
