@@ -10,6 +10,10 @@ storage/
 
 # Real invoices a developer drops here for manual local testing (never needed by the tests)
 /*.pdf
+*_Zug.pdf
+
+# Local settings next to the exe / in the project folder
+ZUGFeRD-Studio.ini
 *.doc
 *.docx
 dist_build/

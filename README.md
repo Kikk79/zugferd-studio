@@ -9,10 +9,34 @@ Alles läuft lokal; es wird nichts ins Internet gesendet.
 Doppelklick auf `start.bat` (oder `start.ps1`). Beim ersten Start wird `.venv` angelegt und
 `requirements.txt` installiert. Die Oberfläche öffnet sich unter <http://localhost:8000>.
 
-1. PDF/Word-Datei auf die Fläche ziehen.
+1. Rechnung öffnen – auf einem dieser Wege:
+   - **Datei öffnen…** (Windows-Dialog),
+   - die Rechnung im Explorer **auf `ZUGFeRD-Studio.exe` ziehen** (läuft das Programm schon,
+     wird die Datei an das offene Fenster übergeben),
+   - oder per Drag & Drop ins Browserfenster.
 2. Die erkannten Daten prüfen (Reiter *Übersicht*, *Positionen*). Rote Hinweise ("Zu beheben")
    müssen korrigiert werden, gelbe ("Bitte prüfen") sind Hinweise.
-3. **ZUGFeRD erstellen** → PDF und XML herunterladen.
+3. **ZUGFeRD erstellen** – die PDF wird automatisch gespeichert und mit dem Standardprogramm geöffnet.
+
+## Ausgabe und Einstellungen
+
+Die ZUGFeRD-PDF heißt wie die Ursprungsrechnung plus `_Zug.pdf`
+(`Rechnung 393.pdf` → `Rechnung 393_Zug.pdf`, auch bei Word-Dateien). Es wird **nur diese eine
+Datei** geschrieben; Arbeitsdateien liegen im Windows-Temp-Ordner und werden nach 24 Stunden gelöscht.
+
+Neben `ZUGFeRD-Studio.exe` liegt `ZUGFeRD-Studio.ini` (wird beim ersten Start angelegt,
+Änderungen gelten sofort):
+
+```ini
+[Ausgabe]
+pfad =          ; leer = Ordner der Ursprungsrechnung
+oeffnen = ja    ; erstellte PDF mit dem Standardprogramm öffnen (ja / nein)
+```
+
+Speicherort, wenn `pfad` leer ist: der Ordner der Ursprungsrechnung. Bei Drag & Drop ins
+Browserfenster kennt der Browser diesen Ordner nicht – dann landet die PDF direkt neben der exe.
+Ist die `_Zug.pdf` beim erneuten Erstellen noch in einem PDF-Programm geöffnet, meldet das
+Programm das; nach dem Schließen einfach erneut erstellen.
 
 ## Was geprüft wird
 
@@ -59,7 +83,6 @@ nicht durch einen Platzhalter ersetzt, sondern die Erstellung blockiert.
 `build.bat` ausführen (führt zuerst die Tests aus, dann PyInstaller) → `dist\ZUGFeRD-Studio\` (Ordner,
 nicht nur eine Datei) plus `dist\ZUGFeRD-Studio-windows.zip` zur Weitergabe. Java (Regelprüfung) und
 Microsoft Word (DOC/DOCX) müssen auf dem Zielrechner vorhanden sein, falls diese Funktionen genutzt werden.
-Hochgeladene Dateien liegen dann in `storage\` neben `ZUGFeRD-Studio.exe`.
 Die Tests sind vollständig synthetisch (keine echten Rechnungen im Repo) und laufen in jedem Klon ohne Zusatzdateien durch.
 
 **Warum ein Ordner statt einer einzelnen .exe:** Eine einzelne selbstentpackende `--onefile`-Datei
@@ -74,6 +97,7 @@ mit Identitätsprüfung); ohne Signatur bleibt bei PyInstaller-Programmen ein Re
 Heuristik-Fehlalarme bestehen, egal wie der Code aussieht.
 
 Dateien: `app.py` (API) · `extractor.py` (Texterkennung) · `invoice_logic.py` (Berechnung/Validierung) ·
-`zugferd_generator.py` (XML + Einbettung) · `schematron.py` (Geschäftsregeln) · `pdf_renderer.py` (Muster-PDF, Word-Konvertierung).
+`zugferd_generator.py` (XML + Einbettung) · `schematron.py` (Geschäftsregeln) · `pdf_renderer.py` (Muster-PDF, Word-Konvertierung) ·
+`output.py` (Config, Speichern, Windows-Dialog) · `launcher.py` (exe-Start, Datei-Übergabe).
 
-Hochgeladene Dateien liegen unter `storage/<uuid>/` und werden nach 7 Tagen beim Start gelöscht.
+Arbeitsdateien liegen unter `%TEMP%\ZUGFeRD-Studio\storage\<uuid>\` und werden nach 24 Stunden beim Start gelöscht.

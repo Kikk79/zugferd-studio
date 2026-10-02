@@ -1023,6 +1023,10 @@ body {
 .skonto-row { grid-column: auto; }
 .items-table td.line-net { white-space: nowrap; }
 
+/* Where the ZUGFeRD PDF was saved */
+.result-file-meta.output-ok { color: #34d399; }
+.result-file-meta.output-error { color: #f87171; }
+
 /* Utility Hidden */
 .hidden {
   display: none !important;

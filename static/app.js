@@ -49,7 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ["dragleave", "drop"].forEach((ev) =>
     dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.remove("dragover"); }));
   dropZone.addEventListener("drop", (e) => { if (e.dataTransfer.files.length) handleFileUpload(e.dataTransfer.files[0]); });
-  $("browseBtn").addEventListener("click", () => fileInput.click());
+  $("browseBtn").addEventListener("click", openWithDialog);
   fileInput.addEventListener("change", (e) => { if (e.target.files.length) handleFileUpload(e.target.files[0]); });
   $("sampleBtn").addEventListener("click", loadSampleInvoice);
   $("btnNewUpload").addEventListener("click", resetToUpload);
@@ -73,6 +73,53 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch("/api/upload", { method: "POST", body: formData });
       if (!response.ok) throw new Error(await readError(response, "Fehler beim Verarbeiten des Dokuments"));
       displayResult(await response.json());
+    } catch (err) {
+      console.error(err);
+      resetToUpload();
+      showToast("Fehler: " + err.message, "error");
+    }
+  }
+
+  // Windows "Open" dialog (runs in the local server) - the source folder is then known,
+  // so the ZUGFeRD PDF can be saved next to the original invoice.
+  async function openWithDialog() {
+    showLoading("Bitte Rechnung im Windows-Dialog auswählen...");
+    try {
+      const response = await fetch("/api/pick-file", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: profileSelect.value }),
+      });
+      if (response.status === 501) {          // no native dialog available -> browser picker
+        resetToUpload();
+        fileInput.click();
+        return;
+      }
+      if (!response.ok) throw new Error(await readError(response, "Fehler beim Öffnen der Datei"));
+      const data = await response.json();
+      if (data.cancelled) return resetToUpload();
+      displayResult(data);
+    } catch (err) {
+      console.error(err);
+      resetToUpload();
+      showToast("Fehler: " + err.message, "error");
+    }
+  }
+
+  // Invoice dragged onto ZUGFeRD-Studio.exe: the launcher opens this page with ?pending=1
+  async function loadPending() {
+    history.replaceState(null, "", location.pathname);
+    showLoading("Rechnung wird analysiert...");
+    try {
+      const response = await fetch("/api/pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: profileSelect.value }),
+      });
+      if (!response.ok) throw new Error(await readError(response, "Fehler beim Verarbeiten der Datei"));
+      const data = await response.json();
+      if (data.empty) return resetToUpload();
+      displayResult(data);
     } catch (err) {
       console.error(err);
       resetToUpload();
@@ -138,6 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $("resultStateIcon").className = "success-badge-icon state-" + state.cls;
     $("resultProfileBadge").textContent = "Profil: " + (data.profile || "").toUpperCase();
     $("resultFileName").textContent = ruleSummary(data);
+    showOutput(data.output);
     $("btnUpdateLabel").textContent = data.pdf_download_url ? "ZUGFeRD neu erstellen" : "ZUGFeRD erstellen";
 
     setDownload($("btnDownloadPdf"), data.pdf_download_url);
@@ -150,6 +198,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
     $("xmlCodeBlock").textContent = data.xml_content || "(Noch kein XML – erst nach dem Erstellen verfügbar.)";
     $("pdfPreviewFrame").src = data.preview_url + "?t=" + Date.now();
+  }
+
+  function showOutput(output) {
+    const line = $("resultOutput");
+    line.classList.remove("output-ok", "output-error");
+    if (!output) {
+      line.classList.add("hidden");
+      return;
+    }
+    line.classList.remove("hidden");
+    if (output.saved) {
+      line.textContent = "Gespeichert: " + output.path + (output.opened ? " (geöffnet)" : "");
+      line.classList.add("output-ok");
+    } else {
+      line.textContent = "Nicht gespeichert: " + output.error;
+      line.classList.add("output-error");
+      showToast(output.error, "error");
+    }
   }
 
   function ruleSummary(data) {
@@ -381,4 +447,5 @@ document.addEventListener("DOMContentLoaded", () => {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.add("hidden"), type === "error" ? 6000 : 3500);
   }
+  if (new URLSearchParams(location.search).has("pending")) loadPending();
 });
