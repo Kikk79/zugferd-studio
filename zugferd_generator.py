@@ -151,7 +151,7 @@ def build_zugferd_xml(data: Dict[str, Any], profile: str = "en16931") -> str:
         settlement = _el(li, "ram:SpecifiedLineTradeSettlement")
         tax = _el(settlement, "ram:ApplicableTradeTax")
         _el(tax, "ram:TypeCode", "VAT")
-        _el(tax, "ram:CategoryCode", "S" if line["tax_percent"] > 0 else "Z")
+        _el(tax, "ram:CategoryCode", line["category"])
         _el(tax, "ram:RateApplicablePercent", f"{line['tax_percent']:.2f}")
         _el(_el(settlement, "ram:SpecifiedTradeSettlementLineMonetarySummation"),
             "ram:LineTotalAmount", f"{line['net']:.2f}")
@@ -191,8 +191,12 @@ def build_zugferd_xml(data: Dict[str, Any], profile: str = "en16931") -> str:
         tax = _el(st, "ram:ApplicableTradeTax")
         _el(tax, "ram:CalculatedAmount", f"{g['tax']:.2f}")
         _el(tax, "ram:TypeCode", "VAT")
+        if g["category"] not in ("S", "Z") and g["reason"]:
+            _el(tax, "ram:ExemptionReason", g["reason"])
         _el(tax, "ram:BasisAmount", f"{g['basis']:.2f}")
         _el(tax, "ram:CategoryCode", g["category"])
+        if g["category"] not in ("S", "Z") and g["code"]:
+            _el(tax, "ram:ExemptionReasonCode", g["code"])
         _el(tax, "ram:RateApplicablePercent", f"{g['percent']:.2f}")
 
     terms_text = _payment_terms_text(data, totals)

@@ -196,6 +196,11 @@ def _parse_buyer(lines: List[str], start: int, end: int) -> Tuple[Dict[str, str]
             buyer["postcode"], buyer["city"] = m.group(1), _smart_title(m.group(2).strip())
             break
     if zip_idx is None:
+        for j in range(start, end):                       # e.g. anonymised block that only names the country
+            for cell in _cols(lines[j]):
+                if cell.strip().lower() in COUNTRY_NAMES:
+                    buyer["country"] = COUNTRY_NAMES[cell.strip().lower()]
+                    return buyer, -1
         return buyer, -1
 
     block = [(_cols(lines[k]) or [""])[0] for k in range(start, zip_idx)]
@@ -298,7 +303,7 @@ def _parse_summary(lines: List[str], notes: List[str]) -> Dict[str, Any]:
 
         if net is None and net_re.match(s) and amt is not None:
             net = amt
-        elif net is not None and gross is None and gross_re.match(s) and amt is not None:
+        elif gross is None and gross_re.match(s) and amt is not None:
             gross = amt
 
     prepaid_total = D(0)
@@ -320,6 +325,10 @@ def _parse_summary(lines: List[str], notes: List[str]) -> Dict[str, Any]:
 def _table_cells(line: str) -> List[str]:
     """Split a layout line at wide gaps; a lone currency cell is glued to the amount after it."""
     cells = re.split(r"\s{2,}", line.strip())
+    if len(cells) == 1:                                   # plain text: "label CHF 860,00" on single spaces
+        m = re.match(rf"^(.*\S)\s+((?:[A-Z]{{3}}|€)\s*{AMOUNT})$", cells[0])
+        if m:
+            cells = [m.group(1), m.group(2)]
     merged: List[str] = []
     i = 0
     while i < len(cells):
@@ -330,6 +339,25 @@ def _table_cells(line: str) -> List[str]:
             merged.append(cells[i])
             i += 1
     return merged
+
+
+def _plain_row_cells(s: str) -> Optional[List[str]]:
+    """'1 1 807 827 Modell li. ob. 2.549,00' -> [pos, '1', '807', '827', 'Modell li. ob.', '2.549,00']."""
+    m = re.match(rf"^(\d{{1,3}})\s+(.+?)\s+((?:(?:[A-Z]{{3}}|€)\s*)?{AMOUNT})(?:\s+((?:(?:[A-Z]{{3}}|€)\s*)?{AMOUNT}))?$", s)
+    if not m:
+        return None
+    cells, text_run = [m.group(1)], []
+    for tok in m.group(2).split():
+        if re.fullmatch(r"\d+(?:,\d+)?", tok):
+            if text_run:
+                cells.append(" ".join(text_run))
+                text_run = []
+            cells.append(tok)
+        else:
+            text_run.append(tok)
+    if text_run:
+        cells.append(" ".join(text_run))
+    return cells + [g for g in m.groups()[2:] if g]
 
 
 def _parse_items(lines: List[str], product: str, tax_percent: Decimal, notes: List[str]) -> List[Dict[str, Any]]:
@@ -347,7 +375,10 @@ def _parse_items(lines: List[str], product: str, tax_percent: Decimal, notes: Li
             continue
         cells = _table_cells(s)
 
-        # table header (re-detected on every page)
+        # table header (re-detected on every page); plain text keeps it on single spaces
+        if len(cells) == 1 and re.match(r"(?i)^pos\.?\s+\S", s) and \
+                re.search(r"(?i)\b(stück|stk|menge|anzahl|anz)\b", s):
+            cells = s.split()
         if re.match(r"(?i)^pos\.?$", cells[0]) and len(cells) >= 3:
             header = [c.rstrip(":") for c in cells]
             qty_idx = next((i for i, c in enumerate(header)
@@ -355,11 +386,15 @@ def _parse_items(lines: List[str], product: str, tax_percent: Decimal, notes: Li
             started = True
             continue
 
-        # end of the item region: first net-total line
-        if started and NET_RE.match(s):
+        # end of the item region: first net-total line (or the gross total when there is no net line)
+        if started and (NET_RE.match(s) or (items and GROSS_RE.match(s))):
             break
         if not started:
             continue
+        if header and len(cells) <= 2:
+            plain_cells = _plain_row_cells(s)
+            if plain_cells:
+                cells = plain_cells
 
         # numbered table row
         if header and re.fullmatch(r"\d{1,3}", cells[0]):
@@ -446,6 +481,21 @@ def _parse_items(lines: List[str], product: str, tax_percent: Decimal, notes: Li
     return items
 
 
+def _detect_tax_exemption(text: str) -> Tuple[str, str]:
+    """('G'|'K'|'AE'|'E', reason sentence) when the document states a tax-free supply, else ('', '')."""
+    rules = [
+        ("AE", r"§\s*13b|Steuerschuldnerschaft|reverse[\s-]*charge"),
+        ("K", r"§\s*6a|innergemeinschaftliche\s+(?:Lieferung|Warenlieferung)"),
+        ("G", r"§\s*4\s*Nr\.?\s*1\s*a|Ausfuhrlieferung|§\s*6\s*Abs"),
+        ("E", r"steuerfrei|steuerbefreit"),
+    ]
+    for category, pattern in rules:
+        for line in text.splitlines():
+            if re.search(pattern, line, re.IGNORECASE) and re.search(r"(?i)steuerfrei|steuerbefreit|reverse|13b|Ausfuhr", line):
+                return category, re.sub(r"\s+", " ", line).strip().rstrip(".")
+    return "", ""
+
+
 # ------------------------------------------------------------------ main extraction
 
 def extract_invoice_data_from_text(plain: str, layout: Optional[str] = None,
@@ -514,6 +564,13 @@ def extract_invoice_data_from_text(plain: str, layout: Optional[str] = None,
         if re.fullmatch(r"\d{5}", buyer["postcode"]):
             buyer["country"] = "DE"
             notes.append("Land des Käufers wurde aus der 5-stelligen PLZ als DE angenommen.")
+    if not buyer["name"]:
+        for line in plain_lines:
+            hm = re.search(r"Seite\s+\d+\s+zur\s+[\w\-]*[Rr]echnung\s+Nr\.?[^–—\n]*?[–—]+\s*([^–—\n]+?)\s*(?:[–—]|$)", line)
+            if hm and not hm.group(1).lower().startswith("objekt"):
+                buyer["name"] = hm.group(1).strip()
+                notes.append("Käufername aus dem Seitenkopf übernommen – bitte Käuferdaten prüfen.")
+                break
     buyer_vat = next((v for v, kind in vat_ids if kind == "buyer"), "")
     buyer["vat_id"] = buyer_vat
     data["buyer"] = buyer
@@ -535,14 +592,16 @@ def extract_invoice_data_from_text(plain: str, layout: Optional[str] = None,
     if not data["issue_date"]:
         notes.append("Rechnungsdatum nicht gefunden.")
 
-    # ---- currency
-    if "EUR" in full_text or "€" in full_text:
+    # ---- currency: the code that stands next to amounts (not a substring such as IMPORTEUR)
+    codes = re.findall(rf"\b(EUR|CHF|USD|GBP)\s*(?={AMOUNT})|(?<=\d)\s*(EUR|CHF|USD|GBP)\b", full_text)
+    counted = [c for pair in codes for c in pair if c]
+    if counted:
+        data["currency"] = max(set(counted), key=counted.count)
+    elif "€" in full_text:
         data["currency"] = "EUR"
-    elif "CHF" in full_text:
-        data["currency"] = "CHF"
-    elif "USD" in full_text or "$" in full_text:
+    elif "$" in full_text:
         data["currency"] = "USD"
-    elif "GBP" in full_text or "£" in full_text:
+    elif "£" in full_text:
         data["currency"] = "GBP"
 
     # ---- bank (first checksum-valid IBAN = the letterhead's main account)
@@ -564,19 +623,52 @@ def extract_invoice_data_from_text(plain: str, layout: Optional[str] = None,
     else:
         notes.append("Keine gültige IBAN gefunden.")
 
-    # ---- amounts
-    summary = _parse_summary(body_lines, notes)
+    # ---- tax treatment: explicit "steuerfrei" statements (export, intra-EU supply, reverse charge)
+    tax_cat, tax_reason = _detect_tax_exemption(full_text)
+
+    # ---- amounts + items. Layout text first; plain text if that came out garbled or empty.
+    pm = re.search(r"(?im)^\s*Bezeichnung\s*:?\s+(\S.*?)\s*$", full_text)
+    product = re.sub(r"\s{2,}", " ", pm.group(1)).strip() if pm else ""
+
+    def analyse(lines):
+        local: List[str] = []
+        summ = _parse_summary(lines, local)
+        if tax_cat:
+            rate = D(0)
+        else:
+            rate = summ["rates"][0][0] if summ["rates"] else D(19)
+        found = _parse_items(lines, product, rate, local)
+        return summ, found, local, rate
+
+    candidates = [_normalized_plain_lines(plain)]          # plain text has the cleaner spacing
+    if layout and layout.strip():
+        candidates.append(body_lines)                      # layout text keeps wide-gap table columns
+    def consistent(result):
+        summ, found = result[0], result[1]
+        reference = summ["net"] if summ["net"] is not None else (summ["gross"] if tax_cat else None)
+        total = sum((round2(D(str(i["quantity"])) * D(str(i["unit_price"]))) for i in found), D(0))
+        return bool(found) and reference is not None and abs(total - reference) < D("0.005")
+
+    analysed = [(analyse(lines), lines) for lines in candidates]
+    chosen = next((a for a in analysed if consistent(a[0])), None)       # items add up to the printed net
+    if chosen is None:
+        chosen = max(analysed, key=lambda a: (a[0][0]["net"] is not None or a[0][0]["gross"] is not None, len(a[0][1])))
+    best = (0, chosen[0], chosen[1])
+    _, (summary, found_items, local_notes, tax_percent), body_lines = best
+    notes.extend(local_notes)
     rates = summary["rates"]
-    tax_percent = rates[0][0] if rates else D(19)
-    if not rates:
+
+    if tax_cat:
+        data["tax_category"], data["tax_exemption_reason"] = tax_cat, tax_reason
+        notes.append(f"Steuerfreie Lieferung erkannt (Kategorie {tax_cat}) – Befreiungsgrund aus dem Dokument übernommen.")
+        if summary["net"] is None and summary["gross"] is not None:
+            summary["net"] = summary["gross"]
+    elif not rates:
         notes.append("Kein Umsatzsteuersatz im Dokument gefunden – 19 % angenommen.")
     elif len({r for r, _ in rates}) > 1:
         notes.append("Mehrere Steuersätze erkannt – bitte den Steuersatz je Position prüfen.")
 
-    # ---- items
-    pm = re.search(r"(?im)^\s*Bezeichnung\s*:?\s+(\S.*?)\s*$", "\n".join(body_lines))
-    product = re.sub(r"\s{2,}", " ", pm.group(1)).strip() if pm else ""
-    data["items"] = _parse_items(body_lines, product, tax_percent, notes)
+    data["items"] = found_items
     if not data["items"] and summary["net"] is not None:
         data["items"] = [{"name": "Leistungen laut Rechnung", "quantity": 1.0, "unit": "C62",
                           "unit_price": float(summary["net"]), "tax_percent": float(tax_percent)}]
@@ -595,6 +687,8 @@ def extract_invoice_data_from_text(plain: str, layout: Optional[str] = None,
         stated["net"] = float(summary["net"])
     if rates:
         stated["tax"] = float(sum((a for _, a in rates), D(0)))
+    elif tax_cat:
+        stated["tax"] = 0.0
     if summary["gross"] is not None:
         stated["gross"] = float(summary["gross"])
     if summary["due"] is not None:
@@ -610,6 +704,12 @@ def extract_invoice_data_from_text(plain: str, layout: Optional[str] = None,
             payment["skonto_days"], payment["skonto_percent"] = int(sk.group(1)), float(_dec(sk.group(2)))
         else:
             payment["skonto_days"], payment["skonto_percent"] = int(sk.group(2)), float(_dec(sk.group(1)))
+    if payment["skonto_percent"] and "due" in stated and "gross" in stated:
+        base = D(str(stated["gross"])) - D(str(data["prepaid_amount"]))
+        after_skonto = round2(base * (D(100) - D(str(payment["skonto_percent"]))) / D(100))
+        if abs(D(str(stated["due"])) - after_skonto) <= D("0.01"):
+            del stated["due"]                              # "Zahlbetrag" printed after Skonto deduction
+
     tm = re.search(r"(?im)^\s*(?:ZAHLUNG|Zahlungsbedingungen?|Zahlungsziel)\s*:\s*(\S.*?)\s*$", body_text)
     if tm:
         payment["terms"] = re.sub(r"\s{2,}", " ", tm.group(1))
@@ -619,11 +719,11 @@ def extract_invoice_data_from_text(plain: str, layout: Optional[str] = None,
             payment["terms"] = tm.group(1).strip()
 
     # ---- references
-    om = re.search(r"(?im)Auftrags-?Nr\.?\s*:?\s*(\S+)", body_text)
+    om = re.search(r"(?im)Auftrags-?Nr\.?\s*:\s*(\S.*?)\s*$", body_text)
     obj = re.search(r"(?im)^\s*Objekt\s*:\s*(\S.*?)\s*$", body_text)
     note_parts = []
     if om:
-        note_parts.append(f"Auftrags-Nr.: {om.group(1)}")
+        note_parts.append("Auftrags-Nr.: " + re.sub(r"-\s+", "-", re.sub(r"\s{2,}", " ", om.group(1))))
     if obj:
         note_parts.append(f"Objekt: {re.sub(r'\s{2,}', ' ', obj.group(1))}")
     if product:

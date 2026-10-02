@@ -326,6 +326,22 @@
                       <input type="text" id="invoiceNote" data-path="note" />
                     </div>
                   </div>
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="taxCategory">Steuerart der 0-%-Positionen</label>
+                      <select id="taxCategory" data-path="tax_category">
+                        <option value="">0 % Umsatzsteuer (Kategorie Z)</option>
+                        <option value="G">Steuerfreie Ausfuhr (G, § 4 Nr. 1a UStG)</option>
+                        <option value="K">Innergemeinschaftliche Lieferung (K, § 4 Nr. 1b UStG)</option>
+                        <option value="AE">Reverse Charge / § 13b UStG (AE)</option>
+                        <option value="E">Steuerbefreit, sonstiger Grund (E)</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="taxReason">Befreiungsgrund (Text auf der Rechnung)</label>
+                      <input type="text" id="taxReason" data-path="tax_exemption_reason" />
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Payment Card -->

@@ -12,6 +12,8 @@ Invoice data schema (plain dict, JSON-friendly):
     buyer:   name, street, postcode, city, country, vat_id, email
     payment: iban, bic, account_holder, terms, skonto_days, skonto_percent
     items:   [{name, quantity, unit, unit_price, tax_percent}]
+    tax_category, tax_exemption_reason   VAT category of all 0 % lines: Z (zero rate), E (exempt),
+                                        G (export, tax-free), K (intra-EU supply), AE (reverse charge)
     prepaid_amount                      gross amount already paid (Anzahlungen)
     preceding_invoices: [{id, date}]    invoices referenced (e.g. Anzahlungsrechnung)
     stated:  {net, tax, gross, prepaid, due}   values printed on the source document
@@ -37,6 +39,22 @@ UNIT_ALIASES = {
     "m": "MTR", "lfm": "MTR", "m2": "MTK", "m²": "MTK", "qm": "MTK", "m3": "MTQ", "m³": "MTQ",
     "kg": "KGM", "t": "TNE", "l": "LTR", "ltr": "LTR", "km": "KMT", "set": "SET", "satz": "SET",
 }
+
+
+# VAT categories for 0 % lines -> (needs reason text, auto exemption code per VATEX list)
+ZERO_RATE_CATEGORIES = {
+    "Z": (False, None),
+    "E": (True, None),
+    "G": (False, "VATEX-EU-G"),
+    "K": (False, "VATEX-EU-IC"),
+    "AE": (False, "VATEX-EU-AE"),
+    "O": (True, "VATEX-EU-O"),
+}
+
+
+def zero_rate_category(data: Dict[str, Any]) -> str:
+    cat = str(data.get("tax_category") or "Z").upper()
+    return cat if cat in ZERO_RATE_CATEGORIES else "Z"
 
 
 class InvoiceValidationError(ValueError):
@@ -142,25 +160,29 @@ def compute_totals(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     default_rate = parse_amount(data.get("tax_percent", 19))
     lines = []
-    groups: Dict[Decimal, Dict[str, Decimal]] = {}
+    groups: Dict[tuple, Dict[str, Decimal]] = {}
+    zero_cat = zero_rate_category(data)
 
     for idx, item in enumerate(data.get("items") or [], start=1):
         qty = parse_amount(item.get("quantity", 1))
         price = parse_amount(item.get("unit_price", 0))
         rate = parse_amount(item.get("tax_percent", default_rate))
         net = round2(qty * price)
+        category = "S" if rate > 0 else zero_cat
         lines.append({"line_id": str(idx), "quantity": qty, "unit_price": price,
-                      "tax_percent": rate, "net": net})
-        groups.setdefault(rate, {"basis": D(0)})["basis"] += net
+                      "tax_percent": rate, "net": net, "category": category})
+        groups.setdefault((category, rate), {"basis": D(0)})["basis"] += net
 
     tax_groups = []
     tax_total = D(0)
-    for rate in sorted(groups):
-        basis = round2(groups[rate]["basis"])
+    reason = str(data.get("tax_exemption_reason") or "").strip()
+    for category, rate in sorted(groups, key=lambda k: (k[1], k[0])):
+        basis = round2(groups[(category, rate)]["basis"])
         tax = round2(basis * rate / D(100))
         tax_total += tax
-        tax_groups.append({"percent": rate, "basis": basis, "tax": tax,
-                           "category": "S" if rate > 0 else "Z"})
+        tax_groups.append({"percent": rate, "basis": basis, "tax": tax, "category": category,
+                           "reason": reason if category not in ("S", "Z") else "",
+                           "code": ZERO_RATE_CATEGORIES[category][1] if category in ZERO_RATE_CATEGORIES else None})
 
     line_total = round2(sum((l["net"] for l in lines), D(0)))
     tax_total = round2(tax_total)
@@ -191,7 +213,7 @@ def totals_to_json(totals: Dict[str, Any]) -> Dict[str, Any]:
         "prepaid": f(totals["prepaid"]),
         "due": f(totals["due"]),
         "tax_groups": [
-            {"percent": f(g["percent"]), "basis": f(g["basis"]), "tax": f(g["tax"])}
+            {"percent": f(g["percent"]), "basis": f(g["basis"]), "tax": f(g["tax"]), "category": g["category"]}
             for g in totals["tax_groups"]
         ],
         "line_nets": [f(l["net"]) for l in totals["lines"]],
@@ -261,6 +283,17 @@ def validate_invoice(data: Dict[str, Any]) -> List[Dict[str, str]]:
     bic = clean_id(payment.get("bic"))
     if bic and not re.fullmatch(r"[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?", bic):
         warn("payment.bic", f"BIC '{bic}' hat kein gültiges Format.")
+
+    # Zero-rate categories (steuerfrei / Ausfuhr / innergemeinschaftlich / Reverse Charge)
+    zero_cat = zero_rate_category(data)
+    if zero_cat != "Z" and any(parse_amount(i.get("tax_percent", 19)) == 0 for i in data.get("items") or []):
+        needs_reason, auto_code = ZERO_RATE_CATEGORIES[zero_cat]
+        if needs_reason and not str(data.get("tax_exemption_reason") or "").strip():
+            err("tax_exemption_reason", "Für steuerbefreite Positionen fehlt der Befreiungsgrund (z. B. Gesetzesverweis).")
+        if zero_cat in ("K", "AE") and not clean_id(buyer.get("vat_id")):
+            err("buyer.vat_id", "Bei innergemeinschaftlicher Lieferung / Reverse Charge ist die USt-IdNr. des Käufers Pflicht.")
+        if zero_cat == "K" and parse_date(data.get("delivery_date")) is None:
+            err("delivery_date", "Bei innergemeinschaftlicher Lieferung ist das Lieferdatum Pflicht.")
 
     # Items
     items = data.get("items") or []

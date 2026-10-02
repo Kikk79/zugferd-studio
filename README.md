@@ -31,6 +31,7 @@ nicht durch einen Platzhalter ersetzt, sondern die Erstellung blockiert.
 - Teil-/Schluss-Rechnungen mit **Anzahlung** (`TotalPrepaidAmount`, Verweis auf die Anzahlungsrechnung)
 - **Skonto** (strukturiert als `#SKONTO#TAGE=..#PROZENT=..#`), mehrere Steuersätze, Fremdwährung
 - Nachlässe als negative Position
+- **Steuerfreie Lieferungen** (Ausfuhr § 4 Nr. 1a, innergemeinschaftlich, Reverse Charge, sonstige Befreiung): wird im Text erkannt, Kategorie und Befreiungsgrund stehen im Formular
 - Bereits vorhandene ZUGFeRD-PDFs werden erkannt und aus dem XML gelesen
 - Word: Konvertierung per Microsoft Word (pywin32) mit PDF/A-1-Export; ohne Word nur DOCX in vereinfachtem Layout
 
