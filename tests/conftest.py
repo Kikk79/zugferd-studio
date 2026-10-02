@@ -6,15 +6,6 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-REAL_INVOICE = ROOT / "TR 393 _18900.03_Deutschland_40 588 Thieß_260609.pdf"
-
-
-@pytest.fixture(scope="session")
-def real_pdf() -> bytes:
-    if not REAL_INVOICE.exists():
-        pytest.skip("Beispielrechnung nicht vorhanden")
-    return REAL_INVOICE.read_bytes()
-
 
 @pytest.fixture()
 def invoice():

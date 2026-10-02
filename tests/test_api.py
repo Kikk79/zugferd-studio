@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app as appmod
+from pdf_renderer import create_invoice_pdf_from_data
 
 client = TestClient(appmod.app)
 UNKNOWN = "00000000-0000-0000-0000-000000000000"
@@ -14,20 +15,29 @@ def test_sample_roundtrip():
     assert client.get(j["xml_download_url"]).status_code == 200
 
 
-def test_upload_generate_and_validation_error(real_pdf):
-    r = client.post("/api/upload", files={"file": ("..\\..\\x/TR.pdf", real_pdf, "application/pdf")})
+def test_upload_sanitizes_path_in_filename(invoice):
+    """A traversal-shaped filename is reduced to its basename, never used as a path."""
+    pdf_bytes = create_invoice_pdf_from_data(invoice)
+    r = client.post("/api/upload", files={"file": ("..\\..\\x/rechnung.pdf", pdf_bytes, "application/pdf")})
     j = r.json()
-    assert r.status_code == 200 and j["filename"] == "TR.pdf" and j["status"] == "valid_zugferd"
-    assert j["totals"]["due"] == 63904.19
+    assert r.status_code == 200 and j["filename"] == "rechnung.pdf"
 
-    data = j["invoice_data"]
-    data["seller"]["vat_id"] = ""
-    bad = client.post("/api/generate", json={"session_id": j["session_id"], "invoice_data": data})
+
+def test_upload_then_generate_with_corrected_data(invoice):
+    pdf_bytes = create_invoice_pdf_from_data(invoice)
+    r = client.post("/api/upload", files={"file": ("rechnung.pdf", pdf_bytes, "application/pdf")})
+    j = r.json()
+    assert r.status_code == 200 and j["filename"] == "rechnung.pdf"
+    session_id = j["session_id"]
+
+    # Regardless of what the heuristic extractor read from the rendered PDF, feeding
+    # back known-incomplete data must block generation, and known-good data must succeed.
+    incomplete = {**invoice, "seller": {**invoice["seller"], "vat_id": ""}}
+    bad = client.post("/api/generate", json={"session_id": session_id, "invoice_data": incomplete})
     assert bad.status_code == 422 and bad.json()["issues"]["errors"]
 
-    data["seller"]["vat_id"] = "DE812477385"
-    good = client.post("/api/generate", json={"session_id": j["session_id"], "profile": "basic", "invoice_data": data})
-    assert good.status_code == 200 and good.json()["profile"] == "basic"
+    good = client.post("/api/generate", json={"session_id": session_id, "profile": "basic", "invoice_data": invoice})
+    assert good.status_code == 200 and good.json()["profile"] == "basic" and good.json()["totals"]["gross"] == 399.78
 
 
 def test_existing_zugferd_is_recognised():

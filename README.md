@@ -60,7 +60,7 @@ nicht durch einen Platzhalter ersetzt, sondern die Erstellung blockiert.
 nicht nur eine Datei) plus `dist\ZUGFeRD-Studio-windows.zip` zur Weitergabe. Java (Regelprüfung) und
 Microsoft Word (DOC/DOCX) müssen auf dem Zielrechner vorhanden sein, falls diese Funktionen genutzt werden.
 Hochgeladene Dateien liegen dann in `storage\` neben `ZUGFeRD-Studio.exe`.
-Tests, die auf die echte Beispielrechnung zugreifen (`TR 393 ….pdf`), werden übersprungen, wenn die Datei fehlt.
+Die Tests sind vollständig synthetisch (keine echten Rechnungen im Repo) und laufen in jedem Klon ohne Zusatzdateien durch.
 
 **Warum ein Ordner statt einer einzelnen .exe:** Eine einzelne selbstentpackende `--onefile`-Datei
 entspricht genau dem Muster, das Antivirus-Heuristiken (v. a. Microsofts ML-Erkennung) häufig als

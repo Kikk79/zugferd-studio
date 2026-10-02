@@ -112,7 +112,7 @@ def _fmt_date(value: str) -> str:
 
 
 def _doc_number(rest: str) -> str:
-    """'CH 008/2026' / '393/2026 vom 14.04.2026' -> the document number (1-2 tokens, must contain a digit)."""
+    """'CH 008/2026' / '123/2026 vom 14.04.2026' -> the document number (1-2 tokens, must contain a digit)."""
     rest = rest.strip()
     m = re.match(r"([A-Za-z0-9][\w\-/.]*)(?:\s+([\w\-/.]*\d[\w\-/.]*))?", rest)
     if not m:

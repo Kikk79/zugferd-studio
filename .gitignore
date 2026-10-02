@@ -8,9 +8,8 @@ dist/
 # Uploads / generated invoices contain personal and business data
 storage/
 
-# Real invoices used as local test material (tests skip when absent)
-TR 393*.pdf
-RE 379*.pdf
+# Real invoices a developer drops here for manual local testing (never needed by the tests)
+/*.pdf
 *.doc
 *.docx
 dist_build/
