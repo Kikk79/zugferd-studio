@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUGFeRD & Factur-X E-Rechnungs Generator</title>
+  <meta name="description" content="Kostenloses Tool: PDF oder DOCX Dokumente per Drag & Drop in ZUGFeRD / Factur-X E-Rechnungen umwandeln." />
+  
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Background Glow Accents -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <path d="M16 13H8"></path>
+            <path d="M16 17H8"></path>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title-wrap">
+            <h1 class="brand-title">ZUGFeRD <span>Studio</span></h1>
+            <span class="badge-version">Factur-X 2.2</span>
+          </div>
+          <p class="brand-subtitle">E-Rechnungs Konverter für PDF &amp; DOCX • EN 16931 konform</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div class="profile-selector">
+          <label for="profileSelect">Standard-Profil:</label>
+          <select id="profileSelect">
+            <option value="en16931" selected>EN 16931 (Comfort / B2B &amp; B2G)</option>
+            <option value="basic">BASIC (Factur-X)</option>
+          </select>
+        </div>
+        <div class="status-pill">
+          <span class="status-dot"></span>
+          <span>E-Rechnungspflicht bereit</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Drag & Drop Upload Zone -->
+      <section id="uploadSection" class="upload-section">
+        <div id="dropZone" class="drop-zone">
+          <input type="file" id="fileInput" accept=".pdf,.docx,.doc" class="file-input-hidden" />
+          
+          <div class="drop-icon-wrap">
+            <svg class="drop-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+
+          <h2 class="drop-title">Rechnung per Drag &amp; Drop hier ablegen</h2>
+          <p class="drop-desc">Unterstützt <strong>PDF</strong> und <strong>Word (.docx)</strong> Dokumente</p>
+
+          <div class="drop-actions">
+            <button id="browseBtn" class="btn btn-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              Datei auswählen
+            </button>
+            <span class="or-separator">oder</span>
+            <button id="sampleBtn" class="btn btn-secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Muster-Rechnung ausprobieren
+            </button>
+          </div>
+
+          <div class="feature-badges">
+            <span class="feat-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Hybrid-PDF nach ZUGFeRD / Factur-X
+            </span>
+            <span class="feat-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              XSD- &amp; Schematron-Prüfung
+            </span>
+            <span class="feat-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Alles lokal auf Ihrem Rechner
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Processing State Spinner -->
+      <section id="loadingSection" class="loading-section hidden">
+        <div class="spinner-card">
+          <div class="loading-spinner"></div>
+          <h3 id="loadingText" class="loading-title">Dokument wird verarbeitet...</h3>
+          <p class="loading-subtitle">Textextraktion • Factur-X XML Erstellung • Schema-Validierung</p>
+          <div class="steps-progress">
+            <div class="step-item active" id="step1">1. Text &amp; Daten erfassen</div>
+            <div class="step-item" id="step2">2. EN 16931 Datenstruktur prüfen</div>
+            <div class="step-item" id="step3">3. Hybrid-PDF erzeugen &amp; prüfen</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Result & Editor Section -->
+      <section id="resultSection" class="result-section hidden">
+        <!-- Result Notification Header -->
+        <div class="result-header-card">
+          <div class="result-status-info">
+            <div class="success-badge-icon" id="resultStateIcon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <div>
+              <div class="result-title-row">
+                <h2 id="resultMainTitle" class="result-title">ZUGFeRD E-Rechnung erfolgreich generiert!</h2>
+                <span id="resultProfileBadge" class="badge-profile">Profil: EN 16931</span>
+              </div>
+              <p id="resultFileName" class="result-file-meta">Datei: muster.pdf • Gültige Hybrid-Rechnung (PDF + XML)</p>
+            </div>
+          </div>
+
+          <div class="result-download-actions">
+            <a id="btnDownloadPdf" href="#" class="btn btn-download-primary" download>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>ZUGFeRD PDF herunterladen</span>
+            </a>
+            <a id="btnDownloadXml" href="#" class="btn btn-download-secondary" download>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              <span>factur-x.xml</span>
+            </a>
+            <button id="btnNewUpload" class="btn btn-ghost" title="Anderes Dokument konvertieren">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+              Neu
+            </button>
+          </div>
+        </div>
+
+        <!-- Findings: errors block generation, warnings and notes are informational -->
+        <section id="issuesPanel" class="issues-panel hidden" aria-live="polite">
+          <div id="issuesErrors" class="issue-group issue-error hidden"></div>
+          <div id="issuesWarnings" class="issue-group issue-warn hidden"></div>
+          <div id="issuesNotes" class="issue-group issue-note hidden"></div>
+        </section>
+
+        <!-- Metric KPI Cards -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Rechnungsnummer</span>
+            <span id="kpiInvoiceId" class="metric-value font-mono">-</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Rechnungsdatum</span>
+            <span id="kpiInvoiceDate" class="metric-value">-</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Nettobetrag</span>
+            <span id="kpiNetTotal" class="metric-value font-mono">- €</span>
+          </div>
+          <div class="metric-card highlight">
+            <span class="metric-label">Zahlbetrag</span>
+            <span id="kpiGrossTotal" class="metric-value font-mono">- €</span>
+          </div>
+        </div>
+
+        <!-- Inspector Tabs -->
+        <div class="tabs-container">
+          <div class="tabs-nav">
+            <button class="tab-btn active" data-tab="tab-overview">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+              Übersicht &amp; Stammdaten
+            </button>
+            <button class="tab-btn" data-tab="tab-items">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              Positionen (<span id="tabItemsCount">1</span>)
+            </button>
+            <button class="tab-btn" data-tab="tab-xml">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+              Factur-X XML Vorschau
+            </button>
+            <button class="tab-btn" data-tab="tab-preview">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              PDF-Vorschau
+            </button>
+          </div>
+
+          <!-- Tab 1: Overview & Editable Fields -->
+          <div id="tab-overview" class="tab-pane active">
+            <form id="editInvoiceForm" class="edit-form">
+              <div class="form-grid">
+                <!-- Seller Card -->
+                <div class="card-section">
+                  <div class="section-title-wrap">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <h3>Verkäufer / Aussteller</h3>
+                  </div>
+                  <div class="form-group">
+                    <label for="sellerName">Firma / Name *</label>
+                    <input type="text" id="sellerName" data-path="seller.name" required />
+                  </div>
+                  <div class="form-group">
+                    <label for="sellerStreet">Straße &amp; Hausnummer</label>
+                    <input type="text" id="sellerStreet" data-path="seller.street" />
+                  </div>
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="sellerPostcode">PLZ</label>
+                      <input type="text" id="sellerPostcode" data-path="seller.postcode" />
+                    </div>
+                    <div class="form-group">
+                      <label for="sellerCity">Ort</label>
+                      <input type="text" id="sellerCity" data-path="seller.city" />
+                    </div>
+                  </div>
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="sellerVatId">USt-IdNr. *</label>
+                      <input type="text" id="sellerVatId" class="font-mono" data-path="seller.vat_id" />
+                    </div>
+                    <div class="form-group">
+                      <label for="sellerTaxNumber">Steuernummer (falls keine USt-IdNr.)</label>
+                      <input type="text" id="sellerTaxNumber" class="font-mono" data-path="seller.tax_number" />
+                    </div>
+                  </div>
+                  <div class="form-row-3">
+                    <div class="form-group">
+                      <label for="sellerEmail">E-Mail</label>
+                      <input type="email" id="sellerEmail" data-path="seller.email" />
+                    </div>
+                    <div class="form-group">
+                      <label for="sellerPhone">Telefon</label>
+                      <input type="text" id="sellerPhone" data-path="seller.phone" />
+                    </div>
+                    <div class="form-group">
+                      <label for="sellerCountry">Land (ISO)</label>
+                      <input type="text" id="sellerCountry" data-path="seller.country" maxlength="2" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Buyer Card -->
+                <div class="card-section">
+                  <div class="section-title-wrap">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    <h3>Käufer / Rechnungsempfänger</h3>
+                  </div>
+                  <div class="form-group">
+                    <label for="buyerName">Firma / Kunde *</label>
+                    <input type="text" id="buyerName" data-path="buyer.name" required />
+                  </div>
+                  <div class="form-group">
+                    <label for="buyerStreet">Straße &amp; Hausnummer</label>
+                    <input type="text" id="buyerStreet" data-path="buyer.street" />
+                  </div>
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="buyerPostcode">PLZ</label>
+                      <input type="text" id="buyerPostcode" data-path="buyer.postcode" />
+                    </div>
+                    <div class="form-group">
+                      <label for="buyerCity">Ort</label>
+                      <input type="text" id="buyerCity" data-path="buyer.city" />
+                    </div>
+                  </div>
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="buyerVatId">USt-IdNr. (optional)</label>
+                      <input type="text" id="buyerVatId" class="font-mono" data-path="buyer.vat_id" />
+                    </div>
+                    <div class="form-group">
+                      <label for="buyerCountry">Land (ISO) *</label>
+                      <input type="text" id="buyerCountry" data-path="buyer.country" maxlength="2" />
+                    </div>
+                  </div>
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="buyerEmail">E-Mail</label>
+                      <input type="email" id="buyerEmail" data-path="buyer.email" />
+                    </div>
+                    <div class="form-group">
+                      <label for="buyerReference">Käuferreferenz / Leitweg-ID</label>
+                      <input type="text" id="buyerReference" class="font-mono" data-path="buyer_reference" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Invoice Meta Card -->
+                <div class="card-section full-width">
+                  <div class="section-title-wrap">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <h3>Rechnungsdaten</h3>
+                  </div>
+                  <div class="form-row-4">
+                    <div class="form-group">
+                      <label for="invoiceId">Rechnungsnummer *</label>
+                      <input type="text" id="invoiceId" class="font-mono" data-path="invoice_id" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="invoiceDate">Rechnungsdatum *</label>
+                      <input type="text" id="invoiceDate" data-path="issue_date" placeholder="TT.MM.JJJJ" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="deliveryDate">Lieferdatum</label>
+                      <input type="text" id="deliveryDate" data-path="delivery_date" placeholder="TT.MM.JJJJ" />
+                    </div>
+                    <div class="form-group">
+                      <label for="invoiceDueDate">Fällig am</label>
+                      <input type="text" id="invoiceDueDate" data-path="due_date" placeholder="TT.MM.JJJJ" />
+                    </div>
+                  </div>
+                  <div class="form-row-2">
+                    <div class="form-group">
+                      <label for="invoiceCurrency">Währung</label>
+                      <input type="text" id="invoiceCurrency" data-path="currency" maxlength="3" />
+                    </div>
+                    <div class="form-group">
+                      <label for="invoiceNote">Hinweis / Referenzen (z. B. Auftrags-Nr., Objekt)</label>
+                      <input type="text" id="invoiceNote" data-path="note" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Payment Card -->
+                <div class="card-section full-width">
+                  <div class="section-title-wrap">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                    <h3>Zahlung, Anzahlung &amp; Skonto</h3>
+                  </div>
+                  <div class="form-row-3">
+                    <div class="form-group">
+                      <label for="paymentIban">IBAN (Empfängerkonto)</label>
+                      <input type="text" id="paymentIban" class="font-mono" data-path="payment.iban" />
+                    </div>
+                    <div class="form-group">
+                      <label for="paymentBic">BIC (optional)</label>
+                      <input type="text" id="paymentBic" class="font-mono" data-path="payment.bic" />
+                    </div>
+                    <div class="form-group">
+                      <label for="paymentTerms">Zahlungsbedingungen</label>
+                      <input type="text" id="paymentTerms" data-path="payment.terms" />
+                    </div>
+                  </div>
+                  <div class="form-row-4">
+                    <div class="form-group">
+                      <label for="prepaidAmount">Bereits gezahlt / Anzahlung (brutto)</label>
+                      <input type="text" id="prepaidAmount" class="font-mono" data-path="prepaid_amount" inputmode="decimal" />
+                    </div>
+                    <div class="form-group">
+                      <label for="precedingId">Anzahlungsrechnung Nr.</label>
+                      <input type="text" id="precedingId" class="font-mono" />
+                    </div>
+                    <div class="form-group">
+                      <label for="precedingDate">vom</label>
+                      <input type="text" id="precedingDate" placeholder="TT.MM.JJJJ" />
+                    </div>
+                    <div class="form-row-2 skonto-row">
+                      <div class="form-group">
+                        <label for="skontoDays">Skonto (Tage)</label>
+                        <input type="text" id="skontoDays" data-path="payment.skonto_days" inputmode="numeric" />
+                      </div>
+                      <div class="form-group">
+                        <label for="skontoPercent">Skonto (%)</label>
+                        <input type="text" id="skontoPercent" data-path="payment.skonto_percent" inputmode="decimal" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Re-generate action -->
+              <div class="form-actions-bar">
+                <span class="info-note">Beim Erstellen werden die Angaben geprüft und in das eingebettete XML übernommen.</span>
+                <button type="submit" id="btnUpdateInvoice" class="btn btn-primary">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                  <span id="btnUpdateLabel">ZUGFeRD erstellen / aktualisieren</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Tab 2: Line Items -->
+          <div id="tab-items" class="tab-pane">
+            <div class="items-pane-wrapper">
+              <div class="items-header-bar">
+                <h3>Rechnungspositionen</h3>
+                <button type="button" id="btnAddItem" class="btn btn-secondary btn-sm">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  Position hinzufügen
+                </button>
+              </div>
+
+              <div class="table-responsive">
+                <table class="items-table" id="itemsTable">
+                  <thead>
+                    <tr>
+                      <th style="width: 38%;">Beschreibung</th>
+                      <th style="width: 10%;">Menge</th>
+                      <th style="width: 10%;">Einheit</th>
+                      <th style="width: 14%;">Einzelpreis</th>
+                      <th style="width: 9%;">MwSt.</th>
+                      <th style="width: 15%;">Netto</th>
+                      <th style="width: 4%;"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="itemsTableBody">
+                    <!-- Populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="totals-summary-card" id="totalsCard">
+                <div class="totals-row"><span>Nettobetrag:</span><span id="summaryNet" class="font-mono">–</span></div>
+                <div id="summaryTaxRows"></div>
+                <div class="totals-row"><span>Bruttobetrag:</span><span id="summaryGross" class="font-mono">–</span></div>
+                <div class="totals-row hidden" id="summaryPrepaidRow"><span>abzgl. Anzahlung:</span><span id="summaryPrepaid" class="font-mono">–</span></div>
+                <div class="totals-row total"><span>Zahlbetrag:</span><span id="summaryDue" class="font-mono">–</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 3: Factur-X XML View -->
+          <div id="tab-xml" class="tab-pane">
+            <div class="xml-viewer-card">
+              <div class="xml-toolbar">
+                <div class="xml-meta">
+                  <span class="xml-badge">XML CII</span>
+                  <span class="xml-subtext">urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100</span>
+                </div>
+                <button type="button" id="btnCopyXml" class="btn btn-secondary btn-sm">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  XML kopieren
+                </button>
+              </div>
+              <pre class="xml-code-pre"><code id="xmlCodeBlock" class="xml-code font-mono"></code></pre>
+            </div>
+          </div>
+
+          <!-- Tab 4: Live PDF Preview -->
+          <div id="tab-preview" class="tab-pane">
+            <div class="pdf-viewer-card">
+              <iframe id="pdfPreviewFrame" src="" class="pdf-frame" title="PDF Vorschau"></iframe>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-left">
+        <span>ZUGFeRD 2.2 / Factur-X 1.0 konform</span>
+        <span class="dot">•</span>
+        <span>Europäische E-Rechnungsnorm DIN EN 16931</span>
+      </div>
+      <div class="footer-right">
+        <span>Alle Verarbeitungen erfolgen sicher &amp; lokal auf Ihrem Rechner.</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

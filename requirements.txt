@@ -1,0 +1,9 @@
+fastapi>=0.110.0
+uvicorn>=0.28.0
+python-multipart>=0.0.9
+factur-x>=7.1
+pypdf>=4.0.0
+python-docx>=1.1.0
+reportlab>=4.1.0
+lxml>=5.0.0
+pywin32>=306; sys_platform == "win32"
