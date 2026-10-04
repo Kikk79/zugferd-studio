@@ -11,6 +11,7 @@ _TEST_ROOT = Path(tempfile.mkdtemp(prefix="zugferd-tests-"))
 os.environ["ZUGFERD_DATA_DIR"] = str(_TEST_ROOT / "exe-dir")
 os.environ["ZUGFERD_WORK_DIR"] = str(_TEST_ROOT / "work")
 os.environ["ZUGFERD_NO_OPEN"] = "1"
+os.environ["ZUGFERD_AI_ENABLED"] = "false"
 (_TEST_ROOT / "exe-dir").mkdir(parents=True, exist_ok=True)
 
 ROOT = Path(__file__).resolve().parent.parent

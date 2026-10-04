@@ -17,7 +17,7 @@ IF ERRORLEVEL 1 ( echo Tests fehlgeschlagen - Build abgebrochen. & pause & exit 
   --icon ../static/icon.ico --version-file ../version_info.txt --noupx ^
   --distpath dist --workpath build\pyi --specpath build ^
   --add-data "../static;static" --add-data "../tools;tools" ^
-  --collect-all facturx --collect-data iso4217 --collect-data reportlab --collect-submodules uvicorn ^
+  --collect-all facturx --collect-all pypdfium2 --collect-all pypdfium2_raw --collect-data iso4217 --collect-data reportlab --collect-submodules uvicorn ^
   --hidden-import multipart --hidden-import pythoncom --hidden-import win32com.client --hidden-import pywintypes ^
   launcher.py
 IF ERRORLEVEL 1 ( echo Build fehlgeschlagen. & pause & exit /b 1 )

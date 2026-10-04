@@ -156,6 +156,9 @@ def _build_response(session_id: str, folder: Path, *, status: str, profile: str,
         "totals": totals_to_json(compute_totals(data)),
         "issues": {"errors": errors, "warnings": warnings},
         "extraction_notes": notes or [],
+        "ai_review_attempted": bool(meta.get("ai_review_attempted", False)),
+        "ai_review_used": bool(meta.get("ai_review_used", False)),
+        "ai_model": meta.get("ai_model"),
         "business_rules": business_rules or {"status": "unavailable", "failures": [], "detail": ""},
         "output": output,
         "pdf_download_url": f"/api/download/pdf/{session_id}" if has_pdf else None,
@@ -240,7 +243,13 @@ def _process_document(contents: bytes, filename: str, profile: str, auto_generat
     notes += parsed["extraction_notes"]
     existing = parsed["existing_zugferd_info"]
     meta = _read_meta(folder)
-    meta.update({"invoice_id": data.get("invoice_id", ""), "profile": profile})
+    meta.update({
+        "invoice_id": data.get("invoice_id", ""),
+        "profile": profile,
+        "ai_review_attempted": parsed["ai_review_attempted"],
+        "ai_review_used": parsed["ai_review_used"],
+        "ai_model": parsed["ai_model"],
+    })
 
     if existing:
         # Already a hybrid invoice: show what is inside, write nothing new.
@@ -254,7 +263,7 @@ def _process_document(contents: bytes, filename: str, profile: str, auto_generat
                                business_rules=check_business_rules(existing["xml"], level))
 
     _write_meta(folder, meta)
-    if auto_generate and not has_errors(validate_invoice(data)):
+    if auto_generate and not parsed["ai_review_needed"] and not has_errors(validate_invoice(data)):
         try:
             xml, rules, output = _generate(folder, pdf_bytes, data, profile)
             return _build_response(session_id, folder, status=_status_for(rules), profile=profile,

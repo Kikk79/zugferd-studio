@@ -2,7 +2,11 @@
 
 Wandelt PDF- und Word-Rechnungen (DOCX/DOC) in ZUGFeRD-/Factur-X-E-Rechnungen um
 (Hybrid-PDF mit eingebettetem `factur-x.xml`, Profile **EN 16931** und **BASIC**).
-Alles läuft lokal; es wird nichts ins Internet gesendet.
+Die normale Texterkennung läuft lokal. Nur wenn Angaben fehlen, Extraktionshinweise entstehen
+oder die Validierung Auffälligkeiten findet, wird die Rechnung zur Prüfung an den
+OpenAI-kompatiblen Endpunkt `https://unsloth.aicolab.de/v1` gesendet. Dabei werden
+Rechnungstext und bis zu zehn PDF-Seitenbilder übertragen. KI-Ergebnisse bleiben
+prüfpflichtige Vorschläge; danach wird die ZUGFeRD-Datei nicht automatisch erzeugt.
 
 ## Start
 
@@ -32,6 +36,12 @@ Neben `ZUGFeRD-Studio.exe` liegt `ZUGFeRD-Studio.ini` (wird beim ersten Start an
 pfad =          ; leer = Ordner der Ursprungsrechnung
 oeffnen = ja    ; erstellte PDF mit dem Standardprogramm öffnen (ja / nein)
 ```
+
+Der Token für den KI-Fallback wird aus einer nicht versionierten `.env` neben der Anwendung
+geladen. Bevorzugtes Format: `UNSLOTH_API_KEY=<Token>`. Ein einzelner Token ohne
+Variablennamen wird aus Kompatibilitätsgründen ebenfalls erkannt. Das Modell ist
+`unsloth/Qwen3.8-27B-GGUF`; Endpunkt und Modell lassen sich mit `UNSLOTH_BASE_URL` und
+`UNSLOTH_MODEL` überschreiben. Mit `ZUGFERD_AI_ENABLED=false` bleibt die Verarbeitung lokal.
 
 Speicherort, wenn `pfad` leer ist: der Ordner der Ursprungsrechnung. Bei Drag & Drop ins
 Browserfenster kennt der Browser diesen Ordner nicht – dann landet die PDF direkt neben der exe.
@@ -63,7 +73,8 @@ nicht durch einen Platzhalter ersetzt, sondern die Erstellung blockiert.
 
 - Die Texterkennung ist heuristisch, optimiert für deutsche Rechnungen mit Absenderzeile und
   Positionstabelle. Immer die Felder und Summen kontrollieren – die Oberfläche zeigt Abweichungen an.
-- Gescannte PDFs (nur Bild) werden nicht erkannt (keine OCR).
+- Gescannte PDFs werden lokal nicht per OCR verarbeitet; wenn der Fallback aktiviert ist,
+  kann das Vision-Modell die PDF-Seiten prüfen. Unsichere Werte bleiben manuell prüfpflichtig.
 - Keine Gutschriften (Typ 381), keine Rabatte/Zuschläge auf Dokumentebene (als negative Position erfassen),
   kein XRechnung-Profil.
 - Die strikte **PDF/A-3-Konformität** wurde nicht mit veraPDF geprüft. Das XML ist XSD- und

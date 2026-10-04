@@ -14,6 +14,7 @@ storage/
 
 # Local settings next to the exe / in the project folder
 ZUGFeRD-Studio.ini
+.env
 *.doc
 *.docx
 dist_build/

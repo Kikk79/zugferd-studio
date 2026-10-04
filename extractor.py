@@ -22,7 +22,21 @@ import facturx
 import pypdf
 from lxml import etree
 
-from invoice_logic import D, clean_id, iban_valid, parse_amount, parse_date, round2
+from ai_invoice_extractor import (
+    InvoiceReviewError,
+    ai_review_enabled,
+    review_invoice_with_ai,
+    should_review_with_ai,
+)
+from invoice_logic import (
+    D,
+    clean_id,
+    iban_valid,
+    parse_amount,
+    parse_date,
+    round2,
+    validate_invoice,
+)
 
 # ------------------------------------------------------------------ patterns
 
@@ -850,13 +864,71 @@ def parse_uploaded_file(file_bytes: bytes, filename: str) -> Dict[str, Any]:
 
     notes: List[str] = []
     existing = check_existing_zugferd(file_bytes)
+    ai_review_needed = False
+    ai_review_attempted = False
+    ai_review_used = False
+    ai_model = None
     if existing:
         data = invoice_data_from_cii(existing["xml"].encode("utf-8"))
     else:
         plain = extract_text_from_pdf(file_bytes)
+        layout = extract_layout_text_from_pdf(file_bytes)
         if not plain.strip():
             notes.append("Das PDF enthält keinen auslesbaren Text (Scan?) – bitte Daten manuell erfassen.")
-        data = extract_invoice_data_from_text(plain, extract_layout_text_from_pdf(file_bytes), notes)
+        data = extract_invoice_data_from_text(plain, layout, notes)
+        ai_review_needed = should_review_with_ai(
+            plain_text=plain,
+            invoice_data=data,
+            extraction_notes=notes,
+        )
+        if ai_review_needed and ai_review_enabled():
+            ai_review_attempted = True
+            try:
+                review = review_invoice_with_ai(
+                    pdf_bytes=file_bytes,
+                    plain_text=plain,
+                    layout_text=layout,
+                    invoice_data=data,
+                    extraction_notes=notes,
+                    validation_issues=validate_invoice(data),
+                )
+                reviewed_data = review.get("invoice_data")
+                if not isinstance(reviewed_data, dict):
+                    raise ValueError("KI-Antwort enthält keine Rechnungsdaten.")
+                data = reviewed_data
+                ai_review_used = True
+                ai_model = str(review.get("model") or "") or None
+                model_note = f" mit Modell {ai_model}" if ai_model else ""
+                notes.append(
+                    f"KI-Prüfung{model_note} abgeschlossen; bitte alle übernommenen "
+                    "Rechnungsdaten und Positionen prüfen."
+                )
+                uncertain = review.get("uncertain_fields")
+                if isinstance(uncertain, list) and uncertain:
+                    notes.append(
+                        "KI konnte folgende Felder nicht sicher prüfen: "
+                        + ", ".join(str(item) for item in uncertain[:20])
+                        + "."
+                    )
+                extra_notes = review.get("notes")
+                if isinstance(extra_notes, list):
+                    notes.extend(
+                        str(item)[:240] for item in extra_notes if isinstance(item, str) and item.strip()
+                    )
+            except InvoiceReviewError as exc:
+                notes.append(
+                    f"KI-Prüfung nicht verfügbar ({exc}); die lokale Erkennung bleibt unverändert. "
+                    "Bitte die erkannten Werte manuell kontrollieren."
+                )
+            except Exception:  # noqa: BLE001 — AI review is best-effort, keep local extraction
+                notes.append(
+                    "KI-Prüfung war nicht verfügbar; die lokale Erkennung bleibt unverändert. "
+                    "Bitte die erkannten Werte manuell kontrollieren."
+                )
+        elif ai_review_needed:
+            notes.append(
+                "KI-Prüfung ist deaktiviert; bitte die unvollständige oder auffällige Erkennung manuell kontrollieren."
+            )
 
     return {
         "filename": filename,
@@ -864,4 +936,8 @@ def parse_uploaded_file(file_bytes: bytes, filename: str) -> Dict[str, Any]:
         "existing_zugferd_info": existing,
         "extraction_notes": notes,
         "invoice_data": data,
+        "ai_review_needed": ai_review_needed,
+        "ai_review_attempted": ai_review_attempted,
+        "ai_review_used": ai_review_used,
+        "ai_model": ai_model,
     }
