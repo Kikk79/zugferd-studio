@@ -13,7 +13,13 @@ echo Teste vor dem Build...
 .venv\Scripts\python.exe -m pytest -q -W ignore
 IF ERRORLEVEL 1 ( echo Tests fehlgeschlagen - Build abgebrochen. & pause & exit /b 1 )
 
-.venv\Scripts\python.exe keyvault.py
+REM Token wird NICHT eingebettet (Release). Fuer einen privaten Build: set EMBED_KEY=1
+IF /I "%EMBED_KEY%"=="1" (
+    .venv\Scripts\python.exe keyvault.py
+) ELSE (
+    IF EXIST "_embedded_key.py" del "_embedded_key.py"
+    echo Kein Token eingebettet - der Token wird in der App unter Einstellungen eingetragen.
+)
 
 .venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --onedir --name ZUGFeRD-Studio ^
   --icon ../static/icon.ico --version-file ../version_info.txt --noupx ^

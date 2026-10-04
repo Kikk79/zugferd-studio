@@ -450,6 +450,36 @@ document.addEventListener("DOMContentLoaded", () => {
     $("setAiEnabled").checked = !!cfg.ai_enabled;
     $("aiEnvNote").classList.toggle("hidden", !cfg.ai_forced_by_env);
     $("settingsIni").textContent = cfg.ini_path ? "Gespeichert in: " + cfg.ini_path : "";
+    $("setApiToken").value = "";
+    const sources = { env: "Umgebungsvariable", dotenv: ".env neben der exe", embedded: "in der exe eingebettet" };
+    $("tokenStatus").textContent = cfg.token_source
+      ? "Token gesetzt (" + sources[cfg.token_source] + "). Aus Sicherheitsgründen wird er nicht angezeigt."
+      : "Kein Token gesetzt - die KI-Prüfung ist nicht verfügbar, bis hier ein Token eingetragen wird.";
+  }
+
+  async function saveSettings(extra, okMessage) {
+    const btn = $("btnSaveSettings");
+    btn.disabled = true;
+    try {
+      const body = {
+        output_dir: $("setOutputDir").value.trim(),
+        open_pdf: $("setOpenPdf").checked,
+        ai_enabled: $("setAiEnabled").checked,
+        ...extra,
+      };
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) throw new Error(await readError(response, "Speichern fehlgeschlagen"));
+      applySettings(await response.json());
+      showToast(okMessage, "success");
+    } catch (err) {
+      showToast("Fehler: " + err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   async function loadSettings() {
@@ -478,27 +508,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  $("btnSaveSettings").addEventListener("click", async () => {
-    const btn = $("btnSaveSettings");
-    btn.disabled = true;
-    try {
-      const response = await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          output_dir: $("setOutputDir").value.trim(),
-          open_pdf: $("setOpenPdf").checked,
-          ai_enabled: $("setAiEnabled").checked,
-        }),
-      });
-      if (!response.ok) throw new Error(await readError(response, "Speichern fehlgeschlagen"));
-      applySettings(await response.json());
-      showToast("Einstellungen gespeichert.", "success");
-    } catch (err) {
-      showToast("Fehler: " + err.message, "error");
-    } finally {
-      btn.disabled = false;
-    }
+  $("btnSaveSettings").addEventListener("click", () => {
+    const token = $("setApiToken").value.trim();
+    saveSettings(token ? { api_token: token } : {}, token ? "Einstellungen und Token gespeichert." : "Einstellungen gespeichert.");
+  });
+
+  $("btnClearToken").addEventListener("click", () => {
+    if (!confirm("Gespeicherten Token aus der .env entfernen?")) return;
+    saveSettings({ api_token: "" }, "Token entfernt.");
   });
 
   function escapeHtml(str) {

@@ -116,22 +116,66 @@ def _dotenv_values(path: Path) -> tuple[dict[str, str], str | None]:
     return values, raw_token
 
 
-def load_api_key(env_file: Path | None = None) -> str | None:
-    """Load a token from process env, the local .env, or the build-time embedded copy; never log it."""
+def api_key_source(env_file: Path | None = None) -> tuple[str | None, str | None]:
+    """(token, where it came from): 'env' (process), 'dotenv' (.env next to the exe), 'embedded'."""
     for name in _KEY_NAMES:
         value = os.environ.get(name, "").strip()
         if value:
-            return value
+            return value, "env"
     values, raw_token = _dotenv_values(env_file or DATA_DIR / ".env")
     for name in _KEY_NAMES:
         value = values.get(name, "").strip()
         if value:
-            return value
+            return value, "dotenv"
     if raw_token:
-        return raw_token
+        return raw_token, "dotenv"
     from keyvault import embedded_token
 
-    return embedded_token()
+    token = embedded_token()
+    return (token, "embedded") if token else (None, None)
+
+
+def load_api_key(env_file: Path | None = None) -> str | None:
+    """Load a token from process env, the local .env, or a build-time embedded copy; never log it."""
+    return api_key_source(env_file)[0]
+
+
+def check_api_token(token: str | None) -> str:
+    """Normalise a user-entered token; raises ValueError if it cannot be stored in the .env."""
+    token = (token or "").strip()
+    if token and (re.search(r"\s", token) or token.startswith(("'", '"'))):
+        raise ValueError("Der Token darf keine Leerzeichen, Zeilenumbrüche oder Anführungszeichen enthalten.")
+    return token
+
+
+def save_api_token(token: str | None, env_file: Path | None = None) -> None:
+    """Store the token in the .env next to the exe ('' / None removes it).
+
+    Other lines of the file are kept. Raises ValueError with a user-facing message.
+    """
+    path = env_file or DATA_DIR / ".env"
+    token = check_api_token(token)
+    try:
+        existing = path.read_text(encoding="utf-8-sig").splitlines() if path.exists() else []
+    except OSError as exc:
+        raise ValueError(f"{path.name} konnte nicht gelesen werden: {exc}") from exc
+    _, raw_token = _dotenv_values(path)
+    name_re = re.compile(r"^(export\s+)?(" + "|".join(_KEY_NAMES) + r")\s*=")
+    kept = [
+        line for line in existing
+        if not name_re.match(line.strip()) and not (raw_token and line.strip() == raw_token)
+    ]
+    if token:
+        kept.append(f"UNSLOTH_API_KEY={token}")
+    try:
+        if kept:
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.write_text("\n".join(kept) + "\n", encoding="utf-8")
+            os.replace(tmp, path)
+        else:
+            path.unlink(missing_ok=True)
+    except OSError as exc:
+        raise ValueError(f"Token konnte nicht gespeichert werden ({path}): {exc}") from exc
 
 
 def should_review_with_ai(

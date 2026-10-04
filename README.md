@@ -40,15 +40,17 @@ oeffnen = ja    ; erstellte PDF mit dem Standardprogramm öffnen (ja / nein)
 aktiv = ja      ; KI-Fallback verwenden (ja / nein)
 ```
 
-Der Token für den KI-Fallback wird aus einer nicht versionierten `.env` neben der Anwendung
-geladen. Bevorzugtes Format: `UNSLOTH_API_KEY=<Token>`. Ein einzelner Token ohne
+Der Token für den KI-Fallback wird im Reiter *Einstellungen* eingetragen und in einer nicht versionierten
+`.env` neben der Anwendung gespeichert (die Seite zeigt ihn nie wieder an, nur ob einer gesetzt ist).
+Reihenfolge: Umgebungsvariable, dann `.env`, dann ein beim Bau eingebetteter Token. Bevorzugtes Format: `UNSLOTH_API_KEY=<Token>`. Ein einzelner Token ohne
 Variablennamen wird aus Kompatibilitätsgründen ebenfalls erkannt. Das Modell ist
 `unsloth/Qwen3.8-27B-GGUF`; Endpunkt und Modell lassen sich mit `UNSLOTH_BASE_URL` und
 `UNSLOTH_MODEL` überschreiben. Mit `aktiv = nein` im Abschnitt `[KI]` der INI (oder im Reiter *Einstellungen*) bleibt die Verarbeitung lokal;
 die Umgebungsvariable `ZUGFERD_AI_ENABLED` hat Vorrang vor der INI.
 
-Beim Bauen mit `build.bat` wird der Token aus der `.env` verschlüsselt in die exe eingebettet (`keyvault.py`;
-Verschleierung, kein echter Schutz). Eine `.env` neben der exe hat weiterhin Vorrang.
+Das Release enthält **keinen** Token. Für einen privaten Build kann `set EMBED_KEY=1` vor `build.bat` den
+Token aus der `.env` verschlüsselt in die exe einbetten (`keyvault.py`; nur Verschleierung, kein echter Schutz –
+solche Builds nicht veröffentlichen).
 
 Speicherort, wenn `pfad` leer ist: der Ordner der Ursprungsrechnung. Bei Drag & Drop ins
 Browserfenster kennt der Browser diesen Ordner nicht – dann landet die PDF direkt neben der exe.

@@ -502,6 +502,15 @@
             <span>KI-Prüfung als Fallback verwenden</span></label>
           <p class="settings-hint">Bei unsicherer Erkennung werden Rechnungstext und bis zu zehn Seitenbilder an den
             KI-Server gesendet. Ausschalten: Die Verarbeitung bleibt komplett lokal.</p>
+          <div class="form-group">
+            <label for="setApiToken">API-Token für die KI-Prüfung</label>
+            <div class="input-with-button">
+              <input type="password" id="setApiToken" autocomplete="new-password" spellcheck="false"
+                     placeholder="Neuen Token eintragen (leer = unverändert)" />
+              <button type="button" id="btnClearToken" class="btn btn-secondary btn-sm">Token löschen</button>
+            </div>
+            <p id="tokenStatus" class="settings-hint"></p>
+          </div>
           <p id="aiEnvNote" class="settings-hint settings-warn hidden">Die Umgebungsvariable
             <code>ZUGFERD_AI_ENABLED</code> ist gesetzt und hat Vorrang vor dieser Einstellung.</p>
 

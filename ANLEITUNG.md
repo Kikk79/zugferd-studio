@@ -57,7 +57,7 @@ Mit **Speichern** gelten sie sofort, ein Neustart ist nicht nötig.
   Mit **Ordner wählen…** oder per Eintippen (z. B. `D:\E-Rechnungen`) legen Sie einen festen Ordner für alle
   erstellten Dateien fest. Der Ordner wird bei Bedarf angelegt.
 - **Erstellte PDF automatisch öffnen:** abwählen, wenn die PDF nach dem Erstellen nicht aufgehen soll.
-- **KI-Prüfung als Fallback verwenden:** siehe nächster Abschnitt.
+- **KI-Prüfung als Fallback verwenden** und **API-Token:** siehe nächster Abschnitt.
 
 Die Werte stehen in der Datei `ZUGFeRD-Studio.ini` neben der `ZUGFeRD-Studio.exe` (wird beim ersten Start angelegt).
 Sie lässt sich bei Bedarf auch mit einem Texteditor ändern.
@@ -67,15 +67,18 @@ Sie lässt sich bei Bedarf auch mit einem Texteditor ändern.
 Die normale Texterkennung läuft **lokal auf Ihrem Rechner**. Nur wenn Angaben fehlen, die Erkennung
 Auffälligkeiten meldet oder die Prüfung Fehler findet, wird die Rechnung zusätzlich von einer KI
 geprüft. Dafür werden der **Rechnungstext und bis zu zehn Seitenbilder** an den Server
-`https://unsloth.aicolab.de/v1` übertragen. Der erforderliche Zugangsschlüssel ist im Programm bereits
-hinterlegt, Sie müssen nichts einrichten.
+`https://unsloth.aicolab.de/v1` übertragen. Dafür brauchen Sie einen **API-Token**, den Sie einmalig im Reiter
+**Einstellungen** unter „API-Token für die KI-Prüfung“ eintragen und mit **Speichern** übernehmen. Ohne Token
+läuft das Programm normal weiter, nur die KI-Prüfung steht dann nicht zur Verfügung.
 
 - KI-Ergebnisse sind **Vorschläge**: Sie müssen sie prüfen, bevor Sie die Datei erstellen.
 - **Datenschutz:** Enthält eine Rechnung Daten, die den Rechner nicht verlassen dürfen, schalten Sie die
   KI ab: Reiter **Einstellungen** → Haken bei „KI-Prüfung als Fallback verwenden“ entfernen → **Speichern**.
   Dann bleibt alles lokal. Ohne KI müssen Sie unvollständig erkannte Felder selbst ergänzen.
-- Mit einer eigenen `.env` neben der `ZUGFeRD-Studio.exe` (Zeile `UNSLOTH_API_KEY=<Token>`) lässt sich ein anderer
-  Zugangsschlüssel verwenden; er hat Vorrang vor dem eingebauten.
+- **Token ändern oder entfernen:** neuen Token eintragen und speichern, oder **Token löschen** wählen. Der Token wird
+  aus Sicherheitsgründen nie wieder angezeigt; die Seite zeigt nur, ob einer gesetzt ist. Er wird in der Datei `.env`
+  neben der `ZUGFeRD-Studio.exe` gespeichert – der Ordner muss dafür beschreibbar sein (nicht unter
+  `C:\Programme`). Behandeln Sie die `.env` wie ein Passwort und geben Sie sie nicht weiter.
 
 ## Was wird geprüft?
 

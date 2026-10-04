@@ -29,6 +29,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from ai_invoice_extractor import api_key_source, check_api_token, save_api_token
 from extractor import parse_uploaded_file
 from invoice_logic import (
     compute_totals, has_errors, split_issues, totals_to_json, validate_invoice,
@@ -93,6 +94,7 @@ class SettingsRequest(BaseModel):
     output_dir: str = ""
     open_pdf: bool = True
     ai_enabled: bool = True
+    api_token: Optional[str] = None  # None = unchanged, "" = remove, otherwise store in .env
 
 
 class FolderRequest(BaseModel):
@@ -354,6 +356,7 @@ def _settings_payload() -> Dict[str, Any]:
         "ai_enabled": cfg["ai_enabled"],
         "ai_forced_by_env": "ZUGFERD_AI_ENABLED" in os.environ,
         "ini_path": str(CONFIG_PATH),
+        "token_source": api_key_source()[1],  # never the token itself
     }
 
 
@@ -366,7 +369,10 @@ def get_settings():
 def put_settings(req: SettingsRequest, request: Request):
     _require_same_origin(request)
     try:
+        token = check_api_token(req.api_token) if req.api_token is not None else None
         save_config(req.output_dir, req.open_pdf, req.ai_enabled)
+        if req.api_token is not None:
+            save_api_token(token)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return _settings_payload()
