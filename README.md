@@ -5,7 +5,14 @@ Wandelt PDF- und Word-Rechnungen (DOCX/DOC) in ZUGFeRD-/Factur-X-E-Rechnungen um
 Die normale Texterkennung läuft lokal. Nur wenn Angaben fehlen, Extraktionshinweise entstehen
 oder die Validierung Auffälligkeiten findet, wird die Rechnung zur Prüfung an den
 OpenAI-kompatiblen Endpunkt `https://unsloth.aicolab.de/v1` gesendet. Dabei werden
-Rechnungstext und bis zu zehn PDF-Seitenbilder übertragen. KI-Ergebnisse bleiben
+Rechnungstext und bis zu zehn PDF-Seitenbilder übertragen – **ohne Kundendaten**: Der Rechnungsempfänger
+wird vorher anonymisiert (`anonymize.py`: Platzhalter „Max Mustermann“ / „Musterstraße 1“ / „12345 Musterstadt“
+in Daten und Text, per Textebene geschwärzt in den Seitenbildern; wo der Empfängerblock nicht erkannt wurde,
+wird er aus dem Text entfernt und es gehen keine Bilder raus; Scans ohne Textebene gehen gar nicht an die KI).
+Betreffen die Auffälligkeiten nur den Empfänger, wird die KI nicht aufgerufen. Die KI bekommt den Hinweis, dass
+Kundendaten nicht zu ihrer Aufgabe gehören; die lokal erkannten Käuferdaten werden nach der Prüfung unverändert
+übernommen. Nicht maskiert werden Erwähnungen, die die Texterkennung nie als Kundendaten erkannt hat (z. B. eine
+Ansprechpartnerin oder die Kundennummer im Freitext). KI-Ergebnisse bleiben
 prüfpflichtige Vorschläge; danach wird die ZUGFeRD-Datei nicht automatisch erzeugt.
 
 ## Start

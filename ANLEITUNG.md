@@ -67,10 +67,17 @@ Sie lässt sich bei Bedarf auch mit einem Texteditor ändern.
 Die normale Texterkennung läuft **lokal auf Ihrem Rechner**. Nur wenn Angaben fehlen, die Erkennung
 Auffälligkeiten meldet oder die Prüfung Fehler findet, wird die Rechnung zusätzlich von einer KI
 geprüft. Dafür werden der **Rechnungstext und bis zu zehn Seitenbilder** an den Server
-`https://unsloth.aicolab.de/v1` übertragen. Dafür brauchen Sie einen **API-Token**, den Sie einmalig im Reiter
+`https://unsloth.aicolab.de/v1` übertragen – **ohne Kundendaten** (siehe unten). Dafür brauchen Sie einen **API-Token**, den Sie einmalig im Reiter
 **Einstellungen** unter „API-Token für die KI-Prüfung“ eintragen und mit **Speichern** übernehmen. Ohne Token
 läuft das Programm normal weiter, nur die KI-Prüfung steht dann nicht zur Verfügung.
 
+- **Kundendaten werden anonymisiert:** Name, Adresse, USt-IdNr., E-Mail und Telefon des Rechnungsempfängers
+  werden im Text durch Platzhalter („Max Mustermann“, „Musterstraße 1“ …) ersetzt und in den Seitenbildern
+  geschwärzt. Wurde der Empfänger nicht erkannt, wird sein Block vollständig entfernt und es werden keine Bilder
+  gesendet. Betrifft die Unsicherheit **nur den Kunden** (z. B. Adresse nicht lesbar), wird gar nichts an die KI
+  geschickt; die Käuferdaten ergänzen Sie dann selbst im Formular. Die KI wird darauf hingewiesen, dass Kundendaten
+  nicht zu ihrer Aufgabe gehören, und die Käuferdaten bleiben nach der Prüfung unverändert. Nicht erfasst werden
+  Erwähnungen im Freitext, die das Programm nicht als Kundendaten erkannt hat (z. B. eine Ansprechpartnerin).
 - KI-Ergebnisse sind **Vorschläge**: Sie müssen sie prüfen, bevor Sie die Datei erstellen.
 - **Datenschutz:** Enthält eine Rechnung Daten, die den Rechner nicht verlassen dürfen, schalten Sie die
   KI ab: Reiter **Einstellungen** → Haken bei „KI-Prüfung als Fallback verwenden“ entfernen → **Speichern**.
@@ -107,8 +114,8 @@ Platzhalter ein, sondern verhindert die Erstellung, bis Sie die Angabe ergänzt 
 
 - Die Texterkennung ist auf **deutsche Rechnungen** mit Absenderzeile und Positionstabelle ausgelegt.
   **Kontrollieren Sie immer Felder und Summen.**
-- Gescannte PDFs werden lokal nicht per Texterkennung (OCR) gelesen. Ist die KI-Prüfung aktiv, kann sie die
-  Seitenbilder auswerten; unsichere Werte müssen Sie trotzdem selbst prüfen.
+- Gescannte PDFs (ohne Textebene) werden lokal nicht per Texterkennung (OCR) gelesen. Da sich die Kundendaten
+  dort nicht anonymisieren lassen, wird auch nichts an die KI gesendet: Daten bitte manuell erfassen.
 - **Nicht unterstützt:** Gutschriften, Rabatte oder Zuschläge auf Rechnungsebene (bitte als negative Position
   erfassen) und das XRechnung-Profil.
 - Die strikte **PDF/A-3-Konformität** wurde nicht mit einem Prüfprogramm (veraPDF) getestet. Das eingebettete XML ist

@@ -177,6 +177,30 @@ def _find_sender_line(lines: List[str]) -> Tuple[Optional[int], Dict[str, str]]:
     return None, {}
 
 
+def _find_heading(lines: List[str], sender_idx: Optional[int]) -> Tuple[Optional[int], str]:
+    """Invoice heading line ('Rechnung Nr. ...') below the sender line: (index, number)."""
+    for i, line in enumerate(lines):
+        if sender_idx is not None and i <= sender_idx:
+            continue
+        m = re.search(r"(?i)\b(?:rechnung|invoice|gutschrift)\b[^\n]*?(?:nr\.?|nummer|no\.?|#)\s*[:.]?\s*(\S.*)", line)
+        if m and not re.search(r"(?i)anzahlung|abschlag|vom\s+\d", line):
+            return i, _doc_number(m.group(1))
+    return None, ""
+
+
+def strip_recipient_block(plain: str) -> str:
+    """The text without the recipient block (between sender line and heading), blank lines dropped.
+
+    Used when the recipient could not be parsed, so it cannot be masked by value.
+    """
+    lines = [l.rstrip() for l in plain.splitlines() if l.strip()]
+    sender_idx, _ = _find_sender_line(lines)
+    heading_idx, _ = _find_heading(lines, sender_idx)
+    start = (sender_idx + 1) if sender_idx is not None else 0
+    end = heading_idx if heading_idx is not None else min(len(lines), start + 12)
+    return "\n".join(lines[:start] + lines[end:])
+
+
 def _seller_name_from_letterhead(letterhead: List[str], sender_name: str) -> str:
     """Join column 1 of the letterhead until the legal form ('... GmbH') is reached."""
     parts: List[str] = []
@@ -554,15 +578,9 @@ def extract_invoice_data_from_text(plain: str, layout: Optional[str] = None,
     seller["tax_number"] = re.sub(r"\s+", "", tm.group(1)) if tm else ""
 
     # ---- heading / invoice number
-    heading_idx = None
-    for i, line in enumerate(plain_lines):
-        if sender_idx is not None and i <= sender_idx:
-            continue
-        m = re.search(r"(?i)\b(?:rechnung|invoice|gutschrift)\b[^\n]*?(?:nr\.?|nummer|no\.?|#)\s*[:.]?\s*(\S.*)", line)
-        if m and not re.search(r"(?i)anzahlung|abschlag|vom\s+\d", line):
-            data["invoice_id"] = _doc_number(m.group(1))
-            heading_idx = i
-            break
+    heading_idx, heading_number = _find_heading(plain_lines, sender_idx)
+    if heading_idx is not None:
+        data["invoice_id"] = heading_number
     if not data["invoice_id"]:
         notes.append("Rechnungsnummer nicht gefunden.")
     if re.search(r"(?i)\bgutschrift\b|\bstorno", full_text):
@@ -900,8 +918,8 @@ def parse_uploaded_file(file_bytes: bytes, filename: str) -> Dict[str, Any]:
                 ai_model = str(review.get("model") or "") or None
                 model_note = f" mit Modell {ai_model}" if ai_model else ""
                 notes.append(
-                    f"KI-Prüfung{model_note} abgeschlossen; bitte alle übernommenen "
-                    "Rechnungsdaten und Positionen prüfen."
+                    f"KI-Prüfung{model_note} abgeschlossen (Kundendaten wurden nicht übertragen); "
+                    "bitte alle übernommenen Rechnungsdaten und Positionen prüfen."
                 )
                 uncertain = review.get("uncertain_fields")
                 if isinstance(uncertain, list) and uncertain:

@@ -501,7 +501,9 @@
           <label class="check-row"><input type="checkbox" id="setAiEnabled" />
             <span>KI-Prüfung als Fallback verwenden</span></label>
           <p class="settings-hint">Bei unsicherer Erkennung werden Rechnungstext und bis zu zehn Seitenbilder an den
-            KI-Server gesendet. Ausschalten: Die Verarbeitung bleibt komplett lokal.</p>
+            KI-Server gesendet. <strong>Die Kundendaten (Rechnungsempfänger) werden dabei anonymisiert</strong>
+            (&bdquo;Max Mustermann&ldquo;, geschwärzt oder entfernt). Sind nur die Kundendaten unklar, wird gar nichts
+            gesendet. Ausschalten: Die Verarbeitung bleibt komplett lokal.</p>
           <div class="form-group">
             <label for="setApiToken">API-Token für die KI-Prüfung</label>
             <div class="input-with-button">
@@ -530,7 +532,7 @@
         <span>Europäische E-Rechnungsnorm DIN EN 16931</span>
       </div>
       <div class="footer-right">
-        <span>Bei unsicherer Erkennung werden Rechnungsdaten zur Prüfung an den KI-Endpunkt gesendet.</span>
+        <span>Bei unsicherer Erkennung werden Rechnungsdaten (ohne Kundendaten) zur Prüfung an den KI-Endpunkt gesendet.</span>
       </div>
     </footer>
   </div>
