@@ -1,0 +1,34 @@
+.env.example
+  h_1e0e6342f9dd83 1-5
+.gitignore
+  h_1e0e6342f9dd83 17
+README.md
+  h_1e0e6342f9dd83 5-9,40-45,76-77
+ai_invoice_extractor.py
+  h_1e0e6342f9dd83 1-352
+app.py
+  h_1e0e6342f9dd83 159-161,246-252,266
+build.bat
+  h_1e0e6342f9dd83 20
+extractor.py
+  h_1e0e6342f9dd83 25-39,867-870,875,878-931,939-942
+requirements.txt
+  h_1e0e6342f9dd83 9-10
+static/index.html
+  h_1e0e6342f9dd83 95,106,482
+tests/conftest.py
+  h_1e0e6342f9dd83 14
+tests/test_ai_invoice.py
+  h_1e0e6342f9dd83 1-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a1cf9e98a6fbe729f97e2ba3d84c8e7657ef9e79",
+  "prompts": {},
+  "humans": {
+    "h_1e0e6342f9dd83": {
+      "author": "Klaus L. <122812577+Kikk79@users.noreply.github.com>"
+    }
+  }
+}
