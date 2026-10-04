@@ -11,6 +11,7 @@ purged after SESSION_TTL_HOURS; only the finished PDF is written anywhere else.
 """
 
 import json
+import os
 import re
 import secrets
 import shutil
@@ -21,6 +22,7 @@ from collections import deque
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -31,7 +33,10 @@ from extractor import parse_uploaded_file
 from invoice_logic import (
     compute_totals, has_errors, split_issues, totals_to_json, validate_invoice,
 )
-from output import ensure_config, output_name, pick_file_dialog, save_output
+from output import (
+    CONFIG_PATH, ensure_config, load_config, output_name, pick_file_dialog, pick_folder_dialog,
+    save_config, save_output,
+)
 from paths import RESOURCE_DIR, WORK_DIR
 from pdf_renderer import ConversionError, convert_docx_to_pdf, create_invoice_pdf_from_data
 from schematron import check_business_rules
@@ -82,6 +87,16 @@ class CalculateRequest(BaseModel):
 
 class LocalFileRequest(BaseModel):
     profile: str = "en16931"
+
+
+class SettingsRequest(BaseModel):
+    output_dir: str = ""
+    open_pdf: bool = True
+    ai_enabled: bool = True
+
+
+class FolderRequest(BaseModel):
+    initial: str = ""
 
 
 class QueueRequest(BaseModel):
@@ -322,6 +337,50 @@ def pick_file(req: LocalFileRequest):
     if not path:
         return {"cancelled": True}
     return _process_local_path(path, req.profile)
+
+
+def _require_same_origin(request: Request) -> None:
+    """Settings change files on disk: refuse requests coming from other web pages."""
+    origin = request.headers.get("origin")
+    if origin and urlparse(origin).netloc != request.headers.get("host"):
+        raise HTTPException(status_code=403, detail="Nicht erlaubt.")
+
+
+def _settings_payload() -> Dict[str, Any]:
+    cfg = load_config()
+    return {
+        "output_dir": cfg["output_dir_raw"],
+        "open_pdf": cfg["open_pdf"],
+        "ai_enabled": cfg["ai_enabled"],
+        "ai_forced_by_env": "ZUGFERD_AI_ENABLED" in os.environ,
+        "ini_path": str(CONFIG_PATH),
+    }
+
+
+@app.get("/api/settings")
+def get_settings():
+    return _settings_payload()
+
+
+@app.put("/api/settings")
+def put_settings(req: SettingsRequest, request: Request):
+    _require_same_origin(request)
+    try:
+        save_config(req.output_dir, req.open_pdf, req.ai_enabled)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _settings_payload()
+
+
+@app.post("/api/pick-folder")
+def pick_folder(req: FolderRequest, request: Request):
+    """Windows folder chooser on this machine (for the output folder setting)."""
+    _require_same_origin(request)
+    try:
+        path = pick_folder_dialog(req.initial or None)
+    except Exception as exc:
+        raise HTTPException(status_code=501, detail=f"Ordnerdialog nicht verfügbar: {exc}")
+    return {"cancelled": True} if not path else {"path": path}
 
 
 @app.post("/api/pending")

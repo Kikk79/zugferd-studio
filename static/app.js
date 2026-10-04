@@ -434,6 +434,73 @@ document.addEventListener("DOMContentLoaded", () => {
       .catch(() => showToast("Kopieren fehlgeschlagen.", "error"));
   });
 
+  // ------------------------------------------------------------ views + settings
+  const viewBtns = Array.from(document.querySelectorAll(".view-btn"));
+
+  function showView(id) {
+    viewBtns.forEach((b) => b.classList.toggle("active", b.dataset.view === id));
+    ["viewInvoice", "viewSettings"].forEach((v) => $(v).classList.toggle("hidden", v !== id));
+    if (id === "viewSettings") loadSettings();
+  }
+  viewBtns.forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
+
+  function applySettings(cfg) {
+    $("setOutputDir").value = cfg.output_dir || "";
+    $("setOpenPdf").checked = !!cfg.open_pdf;
+    $("setAiEnabled").checked = !!cfg.ai_enabled;
+    $("aiEnvNote").classList.toggle("hidden", !cfg.ai_forced_by_env);
+    $("settingsIni").textContent = cfg.ini_path ? "Gespeichert in: " + cfg.ini_path : "";
+  }
+
+  async function loadSettings() {
+    try {
+      const response = await fetch("/api/settings");
+      if (!response.ok) throw new Error(await readError(response, "Einstellungen konnten nicht geladen werden"));
+      applySettings(await response.json());
+    } catch (err) {
+      showToast("Fehler: " + err.message, "error");
+    }
+  }
+
+  $("btnPickFolder").addEventListener("click", async () => {
+    try {
+      const response = await fetch("/api/pick-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ initial: $("setOutputDir").value.trim() }),
+      });
+      if (response.status === 501) return showToast("Ordnerdialog nicht verfügbar - bitte den Pfad eintippen.", "error");
+      if (!response.ok) throw new Error(await readError(response, "Ordnerdialog fehlgeschlagen"));
+      const data = await response.json();
+      if (!data.cancelled) $("setOutputDir").value = data.path;
+    } catch (err) {
+      showToast("Fehler: " + err.message, "error");
+    }
+  });
+
+  $("btnSaveSettings").addEventListener("click", async () => {
+    const btn = $("btnSaveSettings");
+    btn.disabled = true;
+    try {
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          output_dir: $("setOutputDir").value.trim(),
+          open_pdf: $("setOpenPdf").checked,
+          ai_enabled: $("setAiEnabled").checked,
+        }),
+      });
+      if (!response.ok) throw new Error(await readError(response, "Speichern fehlgeschlagen"));
+      applySettings(await response.json());
+      showToast("Einstellungen gespeichert.", "success");
+    } catch (err) {
+      showToast("Fehler: " + err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   function escapeHtml(str) {
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }

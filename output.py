@@ -6,6 +6,8 @@ ZUGFeRD-Studio.ini (next to the .exe, created on first start):
     [Ausgabe]
     pfad =          ; empty = folder of the source invoice; if that is unknown, next to the .exe
     oeffnen = ja    ; open the created PDF with the default program
+    [KI]
+    aktiv = ja      ; AI fallback for uncertain extractions (ja / nein)
 
 The file is named like the source invoice plus "_Zug.pdf" (Rechnung.docx ->
 Rechnung_Zug.pdf). Only this one file is written to the output folder.
@@ -21,9 +23,10 @@ from paths import DATA_DIR
 
 CONFIG_PATH = DATA_DIR / "ZUGFeRD-Studio.ini"
 SUFFIX = "_Zug.pdf"
+_FALSE_WORDS = ("nein", "no", "false", "0", "aus", "off")
 
-DEFAULT_CONFIG = """\
-; ZUGFeRD Studio - Einstellungen
+_CONFIG_TEMPLATE = """; ZUGFeRD Studio - Einstellungen
+; Diese Datei kann auch im Programm unter "Einstellungen" bearbeitet werden.
 ; Änderungen gelten sofort, ein Neustart ist nicht nötig.
 
 [Ausgabe]
@@ -31,11 +34,27 @@ DEFAULT_CONFIG = """\
 ; Leer lassen = in den Ordner der Ursprungsrechnung speichern. Ist dieser Ordner
 ; nicht bekannt (Datei per Drag & Drop ins Browserfenster gezogen), wird die PDF
 ; direkt neben ZUGFeRD-Studio.exe gespeichert.
-pfad =
+pfad = {pfad}
 
 ; Die erstellte ZUGFeRD-PDF automatisch mit dem Standardprogramm öffnen (ja / nein).
-oeffnen = ja
+oeffnen = {oeffnen}
+
+[KI]
+; KI-Prüfung als Fallback bei unsicherer Erkennung (ja / nein). Bei "ja" werden
+; Rechnungstext und Seitenbilder an den KI-Server gesendet, bei "nein" bleibt alles lokal.
+aktiv = {aktiv}
 """
+
+
+def render_config(output_dir: str = "", open_pdf: bool = True, ai_enabled: bool = True) -> str:
+    return _CONFIG_TEMPLATE.format(
+        pfad=" ".join(output_dir.split()),
+        oeffnen="ja" if open_pdf else "nein",
+        aktiv="ja" if ai_enabled else "nein",
+    )
+
+
+DEFAULT_CONFIG = render_config()
 
 _dialog_lock = threading.Lock()
 _last_dialog_dir: Optional[str] = None
@@ -58,10 +77,33 @@ def load_config() -> Dict[str, Any]:
         pass
     raw = parser.get("Ausgabe", "pfad", fallback="").strip().strip('"')
     open_pdf = parser.get("Ausgabe", "oeffnen", fallback="ja").strip().lower()
+    ai = parser.get("KI", "aktiv", fallback="ja").strip().lower()
     return {
         "output_dir": Path(os.path.expandvars(os.path.expanduser(raw))) if raw else None,
-        "open_pdf": open_pdf not in ("nein", "no", "false", "0", "aus"),
+        "output_dir_raw": raw,
+        "open_pdf": open_pdf not in _FALSE_WORDS,
+        "ai_enabled": ai not in _FALSE_WORDS,
     }
+
+
+def save_config(output_dir: str, open_pdf: bool, ai_enabled: bool) -> Dict[str, Any]:
+    """Validate and write the settings. Raises ValueError with a user-facing message."""
+    raw = (output_dir or "").strip().strip('"')
+    if raw:
+        folder = Path(os.path.expandvars(os.path.expanduser(raw)))
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValueError(f"Ausgabeordner nicht verfügbar: {exc}") from exc
+        if not folder.is_dir() or not os.access(folder, os.W_OK):
+            raise ValueError("Der Ausgabeordner ist nicht beschreibbar.")
+    try:
+        tmp = CONFIG_PATH.with_name(CONFIG_PATH.name + ".tmp")
+        tmp.write_text(render_config(raw, open_pdf, ai_enabled), encoding="utf-8")
+        os.replace(tmp, CONFIG_PATH)
+    except OSError as exc:
+        raise ValueError(f"Einstellungen konnten nicht gespeichert werden ({CONFIG_PATH}): {exc}") from exc
+    return load_config()
 
 
 def output_name(source_name: str) -> str:
@@ -106,6 +148,25 @@ def save_output(pdf_bytes: bytes, source_name: str, source_path: Optional[str]) 
         except OSError:
             pass
     return {"saved": True, "path": str(target), "opened": opened, "error": None}
+
+
+def pick_folder_dialog(initial: Optional[str] = None) -> Optional[str]:
+    """Native Windows folder chooser, shown in front of the browser. None = cancelled."""
+    import tkinter as tk
+    from tkinter import filedialog
+
+    with _dialog_lock:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        root.update()
+        try:
+            path = filedialog.askdirectory(
+                parent=root, title="Ausgabeordner auswählen", mustexist=False,
+                initialdir=initial if initial and Path(initial).is_dir() else None)
+        finally:
+            root.destroy()
+    return str(Path(path)) if path else None
 
 
 def pick_file_dialog() -> Optional[str]:

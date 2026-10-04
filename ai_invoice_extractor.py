@@ -69,9 +69,13 @@ class InvoiceReviewError(RuntimeError):
 
 
 def ai_review_enabled() -> bool:
-    """AI review is on by default and can be disabled for offline use."""
-    value = os.environ.get("ZUGFERD_AI_ENABLED", "true").strip().lower()
-    return value not in {"0", "false", "no", "off"}
+    """AI review is on by default; switch it off in the settings (INI) or via ZUGFERD_AI_ENABLED."""
+    value = os.environ.get("ZUGFERD_AI_ENABLED")
+    if value is not None:
+        return value.strip().lower() not in {"0", "false", "no", "off"}
+    from output import load_config
+
+    return bool(load_config()["ai_enabled"])
 
 
 def _dotenv_values(path: Path) -> tuple[dict[str, str], str | None]:
@@ -113,7 +117,7 @@ def _dotenv_values(path: Path) -> tuple[dict[str, str], str | None]:
 
 
 def load_api_key(env_file: Path | None = None) -> str | None:
-    """Load a token from process env or the local .env; never log it."""
+    """Load a token from process env, the local .env, or the build-time embedded copy; never log it."""
     for name in _KEY_NAMES:
         value = os.environ.get(name, "").strip()
         if value:
@@ -123,7 +127,11 @@ def load_api_key(env_file: Path | None = None) -> str | None:
         value = values.get(name, "").strip()
         if value:
             return value
-    return raw_token
+    if raw_token:
+        return raw_token
+    from keyvault import embedded_token
+
+    return embedded_token()
 
 
 def should_review_with_ai(

@@ -28,20 +28,27 @@ Die ZUGFeRD-PDF heißt wie die Ursprungsrechnung plus `_Zug.pdf`
 (`Rechnung 393.pdf` → `Rechnung 393_Zug.pdf`, auch bei Word-Dateien). Es wird **nur diese eine
 Datei** geschrieben; Arbeitsdateien liegen im Windows-Temp-Ordner und werden nach 24 Stunden gelöscht.
 
-Neben `ZUGFeRD-Studio.exe` liegt `ZUGFeRD-Studio.ini` (wird beim ersten Start angelegt,
-Änderungen gelten sofort):
+Die Einstellungen lassen sich im Reiter **Einstellungen** der Oberfläche ändern (Speichern gilt sofort).
+Sie liegen in `ZUGFeRD-Studio.ini` neben `ZUGFeRD-Studio.exe` (wird beim ersten Start angelegt):
 
 ```ini
 [Ausgabe]
 pfad =          ; leer = Ordner der Ursprungsrechnung
 oeffnen = ja    ; erstellte PDF mit dem Standardprogramm öffnen (ja / nein)
+
+[KI]
+aktiv = ja      ; KI-Fallback verwenden (ja / nein)
 ```
 
 Der Token für den KI-Fallback wird aus einer nicht versionierten `.env` neben der Anwendung
 geladen. Bevorzugtes Format: `UNSLOTH_API_KEY=<Token>`. Ein einzelner Token ohne
 Variablennamen wird aus Kompatibilitätsgründen ebenfalls erkannt. Das Modell ist
 `unsloth/Qwen3.8-27B-GGUF`; Endpunkt und Modell lassen sich mit `UNSLOTH_BASE_URL` und
-`UNSLOTH_MODEL` überschreiben. Mit `ZUGFERD_AI_ENABLED=false` bleibt die Verarbeitung lokal.
+`UNSLOTH_MODEL` überschreiben. Mit `aktiv = nein` im Abschnitt `[KI]` der INI (oder im Reiter *Einstellungen*) bleibt die Verarbeitung lokal;
+die Umgebungsvariable `ZUGFERD_AI_ENABLED` hat Vorrang vor der INI.
+
+Beim Bauen mit `build.bat` wird der Token aus der `.env` verschlüsselt in die exe eingebettet (`keyvault.py`;
+Verschleierung, kein echter Schutz). Eine `.env` neben der exe hat weiterhin Vorrang.
 
 Speicherort, wenn `pfad` leer ist: der Ordner der Ursprungsrechnung. Bei Drag & Drop ins
 Browserfenster kennt der Browser diesen Ordner nicht – dann landet die PDF direkt neben der exe.

@@ -51,8 +51,15 @@
       </div>
     </header>
 
+    <!-- Top-level views -->
+    <nav class="view-nav" aria-label="Bereiche">
+      <button type="button" class="view-btn active" data-view="viewInvoice">Rechnung umwandeln</button>
+      <button type="button" class="view-btn" data-view="viewSettings">Einstellungen</button>
+    </nav>
+
     <!-- Main Content Area -->
     <main class="main-content">
+      <div id="viewInvoice">
       <!-- Drag & Drop Upload Zone -->
       <section id="uploadSection" class="upload-section">
         <div id="dropZone" class="drop-zone">
@@ -469,6 +476,41 @@
           </div>
         </div>
       </section>
+      </div>
+
+      <!-- Settings (edits ZUGFeRD-Studio.ini) -->
+      <div id="viewSettings" class="hidden">
+        <section class="card-section settings-card">
+          <div class="section-title-wrap"><h3>Einstellungen</h3></div>
+
+          <h4 class="settings-heading">Ausgabe</h4>
+          <div class="form-group">
+            <label for="setOutputDir">Speicherordner für die ZUGFeRD-PDF</label>
+            <div class="input-with-button">
+              <input type="text" id="setOutputDir" placeholder="leer = Ordner der Ursprungsrechnung" autocomplete="off" />
+              <button type="button" id="btnPickFolder" class="btn btn-secondary btn-sm">Ordner wählen…</button>
+            </div>
+            <p class="settings-hint">Leer lassen: Die Datei wird im Ordner der Ursprungsrechnung gespeichert
+              (<code>Rechnung.pdf</code> → <code>Rechnung_Zug.pdf</code>). Bei Drag &amp; Drop ins Browserfenster ist
+              der Ursprungsordner unbekannt, dann landet die PDF neben der <code>ZUGFeRD-Studio.exe</code>.</p>
+          </div>
+          <label class="check-row"><input type="checkbox" id="setOpenPdf" />
+            <span>Erstellte PDF automatisch mit dem Standardprogramm öffnen</span></label>
+
+          <h4 class="settings-heading">KI-Prüfung</h4>
+          <label class="check-row"><input type="checkbox" id="setAiEnabled" />
+            <span>KI-Prüfung als Fallback verwenden</span></label>
+          <p class="settings-hint">Bei unsicherer Erkennung werden Rechnungstext und bis zu zehn Seitenbilder an den
+            KI-Server gesendet. Ausschalten: Die Verarbeitung bleibt komplett lokal.</p>
+          <p id="aiEnvNote" class="settings-hint settings-warn hidden">Die Umgebungsvariable
+            <code>ZUGFERD_AI_ENABLED</code> ist gesetzt und hat Vorrang vor dieser Einstellung.</p>
+
+          <div class="settings-actions">
+            <button type="button" id="btnSaveSettings" class="btn btn-primary">Speichern</button>
+            <span id="settingsIni" class="settings-hint"></span>
+          </div>
+        </section>
+      </div>
     </main>
 
     <!-- Footer -->
