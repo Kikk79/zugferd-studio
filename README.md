@@ -45,14 +45,23 @@ oeffnen = ja    ; erstellte PDF mit dem Standardprogramm öffnen (ja / nein)
 
 [KI]
 aktiv = ja      ; KI-Fallback verwenden (ja / nein)
+modell =        ; KI-Modell; leer = Standardmodell
+denken = xhigh      ; Denkaufwand: standard / aus / niedrig / mittel / hoch / xhigh
+kontext = 32768 ; maximaler Kontext in Tokens, der an das Modell gesendet wird
 ```
+
+Im Reiter *Einstellungen* lässt sich das Modell aus der Liste des Servers wählen („Modelle laden“). Der Denkaufwand
+wird als `reasoning_effort` bzw. `enable_thinking` an den Server gesendet (`standard` sendet nichts, `aus` schaltet
+das Denken ab); lehnt ein Server die Felder ab, wird die Anfrage ohne sie wiederholt. Der Kontext begrenzt, wie viel
+Rechnungstext gesendet wird (Seitenbilder zählen mit ca. 1.500 Tokens je Seite); er sollte das Kontextfenster des
+Modells nicht übersteigen.
 
 Der Token für den KI-Fallback wird im Reiter *Einstellungen* eingetragen und in einer nicht versionierten
 `.env` neben der Anwendung gespeichert (die Seite zeigt ihn nie wieder an, nur ob einer gesetzt ist).
 Reihenfolge: Umgebungsvariable, dann `.env`, dann ein beim Bau eingebetteter Token. Bevorzugtes Format: `UNSLOTH_API_KEY=<Token>`. Ein einzelner Token ohne
-Variablennamen wird aus Kompatibilitätsgründen ebenfalls erkannt. Das Modell ist
-`unsloth/Qwen3.8-27B-GGUF`; Endpunkt und Modell lassen sich mit `UNSLOTH_BASE_URL` und
-`UNSLOTH_MODEL` überschreiben. Mit `aktiv = nein` im Abschnitt `[KI]` der INI (oder im Reiter *Einstellungen*) bleibt die Verarbeitung lokal;
+Variablennamen wird aus Kompatibilitätsgründen ebenfalls erkannt. Das Standardmodell ist
+`prism-ml/Ternary-Bonsai-2-27B-gguf:PQ2_0`; Endpunkt und Modell lassen sich mit `UNSLOTH_BASE_URL` und
+`UNSLOTH_MODEL` überschreiben (`UNSLOTH_MODEL` hat Vorrang vor der INI). Mit `aktiv = nein` im Abschnitt `[KI]` der INI (oder im Reiter *Einstellungen*) bleibt die Verarbeitung lokal;
 die Umgebungsvariable `ZUGFERD_AI_ENABLED` hat Vorrang vor der INI.
 
 Das Release enthält **keinen** Token. Für einen privaten Build kann `set EMBED_KEY=1` vor `build.bat` den

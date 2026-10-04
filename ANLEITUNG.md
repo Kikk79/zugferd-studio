@@ -58,6 +58,11 @@ Mit **Speichern** gelten sie sofort, ein Neustart ist nicht nötig.
   erstellten Dateien fest. Der Ordner wird bei Bedarf angelegt.
 - **Erstellte PDF automatisch öffnen:** abwählen, wenn die PDF nach dem Erstellen nicht aufgehen soll.
 - **KI-Prüfung als Fallback verwenden** und **API-Token:** siehe nächster Abschnitt.
+- **KI-Modell, Denkaufwand und Maximaler Kontext:** Das Modell wählen Sie aus der Liste des Servers
+  (**Modelle laden**) oder tippen die ID ein; leer bedeutet Standardmodell. Der Denkaufwand (Standard, Aus,
+  Niedrig, Mittel, Hoch, Sehr hoch) bestimmt, wie gründlich die KI nachdenkt – mehr Aufwand ist genauer, dauert
+  aber länger; voreingestellt ist „Sehr hoch“. Der maximale Kontext (in Tokens) begrenzt, wie viel
+  Rechnungstext an die KI gesendet wird; längere Texte werden gekürzt.
 
 Die Werte stehen in der Datei `ZUGFeRD-Studio.ini` neben der `ZUGFeRD-Studio.exe` (wird beim ersten Start angelegt).
 Sie lässt sich bei Bedarf auch mit einem Texteditor ändern.

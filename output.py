@@ -8,6 +8,9 @@ ZUGFeRD-Studio.ini (next to the .exe, created on first start):
     oeffnen = ja    ; open the created PDF with the default program
     [KI]
     aktiv = ja      ; AI fallback for uncertain extractions (ja / nein)
+    modell =        ; model id; empty = built-in default
+    denken = xhigh      ; thinking effort: standard / aus / niedrig / mittel / hoch / xhigh
+    kontext = 32768 ; max. context in tokens that is sent to the model
 
 The file is named like the source invoice plus "_Zug.pdf" (Rechnung.docx ->
 Rechnung_Zug.pdf). Only this one file is written to the output folder.
@@ -15,6 +18,7 @@ Rechnung_Zug.pdf). Only this one file is written to the output folder.
 
 import configparser
 import os
+import re
 import threading
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -43,14 +47,42 @@ oeffnen = {oeffnen}
 ; KI-Prüfung als Fallback bei unsicherer Erkennung (ja / nein). Bei "ja" werden
 ; Rechnungstext und Seitenbilder an den KI-Server gesendet, bei "nein" bleibt alles lokal.
 aktiv = {aktiv}
+
+; KI-Modell (ID wie vom Server gemeldet, z. B. prism-ml/Ternary-Bonsai-2-27B-gguf:PQ2_0).
+; Leer lassen = eingebautes Standardmodell. Die Umgebungsvariable UNSLOTH_MODEL hat Vorrang.
+modell = {modell}
+
+; Denkaufwand (Reasoning) des Modells: standard (Servervorgabe), aus, niedrig, mittel, hoch,
+; xhigh (höchste Stufe, Vorgabe).
+denken = {denken}
+
+; Maximaler Kontext in Tokens, der an das Modell gesendet wird (Rechnungstext und
+; Seitenbilder). Längere Rechnungstexte werden entsprechend gekürzt.
+kontext = {kontext}
 """
 
+DEFAULT_AI_CONTEXT = 32768
+MIN_AI_CONTEXT = 4096
+MAX_AI_CONTEXT = 262144
+DEFAULT_AI_THINKING = "xhigh"
+THINKING_LEVELS = ("standard", "aus", "niedrig", "mittel", "hoch", "xhigh")
 
-def render_config(output_dir: str = "", open_pdf: bool = True, ai_enabled: bool = True) -> str:
+
+def render_config(
+    output_dir: str = "",
+    open_pdf: bool = True,
+    ai_enabled: bool = True,
+    ai_model: str = "",
+    ai_thinking: str = DEFAULT_AI_THINKING,
+    ai_context: int = DEFAULT_AI_CONTEXT,
+) -> str:
     return _CONFIG_TEMPLATE.format(
         pfad=" ".join(output_dir.split()),
         oeffnen="ja" if open_pdf else "nein",
         aktiv="ja" if ai_enabled else "nein",
+        modell=" ".join(ai_model.split()),
+        denken=ai_thinking,
+        kontext=ai_context,
     )
 
 
@@ -78,16 +110,39 @@ def load_config() -> Dict[str, Any]:
     raw = parser.get("Ausgabe", "pfad", fallback="").strip().strip('"')
     open_pdf = parser.get("Ausgabe", "oeffnen", fallback="ja").strip().lower()
     ai = parser.get("KI", "aktiv", fallback="ja").strip().lower()
+    ai_model = parser.get("KI", "modell", fallback="").strip().strip('"')
+    thinking = parser.get("KI", "denken", fallback=DEFAULT_AI_THINKING).strip().lower()
+    try:
+        context = int(parser.get("KI", "kontext", fallback=str(DEFAULT_AI_CONTEXT)).strip())
+    except ValueError:
+        context = DEFAULT_AI_CONTEXT
     return {
         "output_dir": Path(os.path.expandvars(os.path.expanduser(raw))) if raw else None,
         "output_dir_raw": raw,
         "open_pdf": open_pdf not in _FALSE_WORDS,
         "ai_enabled": ai not in _FALSE_WORDS,
+        "ai_model": ai_model,
+        "ai_thinking": thinking if thinking in THINKING_LEVELS else DEFAULT_AI_THINKING,
+        "ai_context": min(max(context, MIN_AI_CONTEXT), MAX_AI_CONTEXT),
     }
 
 
-def save_config(output_dir: str, open_pdf: bool, ai_enabled: bool) -> Dict[str, Any]:
+def save_config(
+    output_dir: str,
+    open_pdf: bool,
+    ai_enabled: bool,
+    ai_model: str = "",
+    ai_thinking: str = DEFAULT_AI_THINKING,
+    ai_context: int = DEFAULT_AI_CONTEXT,
+) -> Dict[str, Any]:
     """Validate and write the settings. Raises ValueError with a user-facing message."""
+    ai_model = (ai_model or "").strip().strip('"')
+    if re.search(r"[\s;#]", ai_model):
+        raise ValueError("Die Modell-ID darf keine Leerzeichen, Semikolons oder # enthalten.")
+    if ai_thinking not in THINKING_LEVELS:
+        raise ValueError("Unbekannter Denkaufwand: " + ", ".join(THINKING_LEVELS) + " sind erlaubt.")
+    if not MIN_AI_CONTEXT <= ai_context <= MAX_AI_CONTEXT:
+        raise ValueError(f"Der maximale Kontext muss zwischen {MIN_AI_CONTEXT} und {MAX_AI_CONTEXT} Tokens liegen.")
     raw = (output_dir or "").strip().strip('"')
     if raw:
         folder = Path(os.path.expandvars(os.path.expanduser(raw)))
@@ -99,7 +154,7 @@ def save_config(output_dir: str, open_pdf: bool, ai_enabled: bool) -> Dict[str, 
             raise ValueError("Der Ausgabeordner ist nicht beschreibbar.")
     try:
         tmp = CONFIG_PATH.with_name(CONFIG_PATH.name + ".tmp")
-        tmp.write_text(render_config(raw, open_pdf, ai_enabled), encoding="utf-8")
+        tmp.write_text(render_config(raw, open_pdf, ai_enabled, ai_model, ai_thinking, ai_context), encoding="utf-8")
         os.replace(tmp, CONFIG_PATH)
     except OSError as exc:
         raise ValueError(f"Einstellungen konnten nicht gespeichert werden ({CONFIG_PATH}): {exc}") from exc

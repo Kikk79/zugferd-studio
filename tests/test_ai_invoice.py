@@ -94,7 +94,7 @@ def test_ai_reviewer_uses_unsloth_model_and_preserves_uncertain_fields(
 
     assert captured["url"] == f"{DEFAULT_BASE_URL}/chat/completions"
     assert captured["authorization"] == "Bearer test-token-never-real"
-    assert captured["payload"]["model"] == DEFAULT_MODEL == "unsloth/Qwen3.8-27B-GGUF"
+    assert captured["payload"]["model"] == DEFAULT_MODEL == "prism-ml/Ternary-Bonsai-2-27B-gguf:PQ2_0"
     assert any(
         part["type"] == "image_url"
         for part in captured["payload"]["messages"][1]["content"]
@@ -193,3 +193,67 @@ def test_ai_review_required_blocks_automatic_zugferd_creation(monkeypatch, invoi
     assert result["pdf_download_url"] is None
     assert result["ai_review_attempted"] is True
     assert result["ai_review_used"] is False
+
+
+def test_thinking_effort_and_context_budget_reach_the_request(monkeypatch, invoice):
+    import json
+
+    import httpx
+
+    import output
+    from ai_invoice_extractor import review_invoice_with_ai
+    from pdf_renderer import create_invoice_pdf_from_data
+
+    monkeypatch.setenv("UNSLOTH_API_KEY", "test-token-never-real")
+    monkeypatch.delenv("UNSLOTH_MODEL", raising=False)
+    output.CONFIG_PATH.write_text(
+        output.render_config(ai_model="ini-model", ai_thinking="hoch", ai_context=4096), encoding="utf-8"
+    )
+    captured = []
+
+    def handler(request):
+        captured.append(json.loads(request.content))
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps({"invoice_data": invoice})}}]}
+        )
+
+    try:
+        result = review_invoice_with_ai(
+            pdf_bytes=create_invoice_pdf_from_data(invoice),
+            plain_text="x" * 50_000,
+            layout_text="",
+            invoice_data=invoice,
+            extraction_notes=["prüfen"],
+            validation_issues=[],
+            transport=httpx.MockTransport(handler),
+        )
+    finally:
+        output.CONFIG_PATH.write_text(output.DEFAULT_CONFIG, encoding="utf-8")
+
+    payload = captured[0]
+    assert payload["model"] == "ini-model" == result["model"]
+    assert payload["reasoning_effort"] == "high"
+    assert payload["chat_template_kwargs"] == {"enable_thinking": True}
+    sent = json.loads(payload["messages"][1]["content"][0]["text"])
+    assert len(sent["pdf_text"]) < 50_000  # trimmed to the small context budget
+
+
+def test_thinking_off_standard_and_plain_retry():
+    from ai_invoice_extractor import _text_budgets, _thinking_params
+
+    assert _thinking_params("standard") == {}
+    assert _thinking_params("aus") == {"chat_template_kwargs": {"enable_thinking": False}}
+    assert _thinking_params("niedrig")["reasoning_effort"] == "low"
+    assert _thinking_params("xhigh")["reasoning_effort"] == "xhigh"
+    text_cap, layout_cap = _text_budgets(32768, 0, 10_000, 10_000)
+    assert text_cap + layout_cap <= (32768 - 6000) * 3 and layout_cap == 10_000
+
+
+def test_list_ai_models(monkeypatch):
+    import httpx
+
+    from ai_invoice_extractor import list_ai_models
+
+    monkeypatch.setenv("UNSLOTH_API_KEY", "test-token-never-real")
+    handler = lambda request: httpx.Response(200, json={"data": [{"id": "b"}, {"id": "a"}, {"id": "a"}]})
+    assert list_ai_models(transport=httpx.MockTransport(handler)) == ["a", "b"]

@@ -513,6 +513,34 @@
             </div>
             <p id="tokenStatus" class="settings-hint"></p>
           </div>
+          <div class="form-group">
+            <label for="setAiModel">KI-Modell</label>
+            <div class="input-with-button">
+              <input type="text" id="setAiModel" list="aiModelList" autocomplete="off" spellcheck="false" />
+              <datalist id="aiModelList"></datalist>
+              <button type="button" id="btnLoadModels" class="btn btn-secondary btn-sm">Modelle laden</button>
+            </div>
+            <p id="aiModelNote" class="settings-hint"></p>
+          </div>
+          <div class="form-group">
+            <label for="setAiThinking">Denkaufwand (Thinking)</label>
+            <select id="setAiThinking">
+              <option value="standard">Standard (Servervorgabe)</option>
+              <option value="aus">Aus</option>
+              <option value="niedrig">Niedrig</option>
+              <option value="mittel">Mittel</option>
+              <option value="hoch">Hoch</option>
+              <option value="xhigh">Sehr hoch (xhigh)</option>
+            </select>
+            <p class="settings-hint">Mehr Denkaufwand kann schwierige Rechnungen genauer prüfen, dauert aber länger.
+              Nicht jedes Modell unterstützt die Einstellung; dann wird sie vom Server ignoriert.</p>
+          </div>
+          <div class="form-group">
+            <label for="setAiContext">Maximaler Kontext (Tokens)</label>
+            <input type="number" id="setAiContext" min="4096" max="262144" step="1024" />
+            <p class="settings-hint">So viel Rechnungstext wird höchstens an das Modell gesendet (4.096 bis 262.144).
+              Längere Texte werden gekürzt; der Wert sollte nicht größer sein als das Kontextfenster des Modells.</p>
+          </div>
           <p id="aiEnvNote" class="settings-hint settings-warn hidden">Die Umgebungsvariable
             <code>ZUGFERD_AI_ENABLED</code> ist gesetzt und hat Vorrang vor dieser Einstellung.</p>
 

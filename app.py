@@ -29,7 +29,10 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from ai_invoice_extractor import api_key_source, check_api_token, save_api_token
+from ai_invoice_extractor import (
+    DEFAULT_MODEL, InvoiceReviewError, ai_settings, api_key_source, check_api_token, list_ai_models,
+    save_api_token,
+)
 from extractor import parse_uploaded_file
 from invoice_logic import (
     compute_totals, has_errors, split_issues, totals_to_json, validate_invoice,
@@ -94,6 +97,9 @@ class SettingsRequest(BaseModel):
     output_dir: str = ""
     open_pdf: bool = True
     ai_enabled: bool = True
+    ai_model: str = ""
+    ai_thinking: str = "xhigh"
+    ai_context: int = 32768
     api_token: Optional[str] = None  # None = unchanged, "" = remove, otherwise store in .env
 
 
@@ -354,6 +360,12 @@ def _settings_payload() -> Dict[str, Any]:
         "output_dir": cfg["output_dir_raw"],
         "open_pdf": cfg["open_pdf"],
         "ai_enabled": cfg["ai_enabled"],
+        "ai_model": cfg["ai_model"],
+        "ai_default_model": DEFAULT_MODEL,
+        "ai_model_forced_by_env": bool(os.environ.get("UNSLOTH_MODEL", "").strip()),
+        "ai_model_effective": ai_settings()["model"],
+        "ai_thinking": cfg["ai_thinking"],
+        "ai_context": cfg["ai_context"],
         "ai_forced_by_env": "ZUGFERD_AI_ENABLED" in os.environ,
         "ini_path": str(CONFIG_PATH),
         "token_source": api_key_source()[1],  # never the token itself
@@ -370,12 +382,24 @@ def put_settings(req: SettingsRequest, request: Request):
     _require_same_origin(request)
     try:
         token = check_api_token(req.api_token) if req.api_token is not None else None
-        save_config(req.output_dir, req.open_pdf, req.ai_enabled)
+        save_config(
+            req.output_dir, req.open_pdf, req.ai_enabled,
+            req.ai_model, req.ai_thinking, req.ai_context,
+        )
         if req.api_token is not None:
             save_api_token(token)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return _settings_payload()
+
+
+@app.get("/api/ai-models")
+def get_ai_models():
+    """Models offered by the AI endpoint, for the picker in the settings."""
+    try:
+        return {"models": list_ai_models()}
+    except InvoiceReviewError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 @app.post("/api/pick-folder")

@@ -141,3 +141,37 @@ def test_env_var_beats_dotenv_and_is_reported(clean_env, monkeypatch):
     monkeypatch.setenv("UNSLOTH_API_KEY", "from-process-env")
     assert client.get("/api/settings").json()["token_source"] == "env"
     assert ai.load_api_key() == "from-process-env"
+
+
+def test_model_thinking_context_roundtrip_through_ini():
+    r = _put(ai_model="unsloth/Test-9B", ai_thinking="xhigh", ai_context=65536)
+    assert r.status_code == 200
+    body = r.json()
+    assert (body["ai_model"], body["ai_thinking"], body["ai_context"]) == ("unsloth/Test-9B", "xhigh", 65536)
+    cfg = output.load_config()
+    assert (cfg["ai_model"], cfg["ai_thinking"], cfg["ai_context"]) == ("unsloth/Test-9B", "xhigh", 65536)
+    text = output.CONFIG_PATH.read_text(encoding="utf-8")
+    assert "modell = unsloth/Test-9B" in text and "denken = xhigh" in text and "kontext = 65536" in text
+
+
+def test_invalid_ai_options_are_rejected_without_side_effects():
+    for bad in ({"ai_thinking": "extrem"}, {"ai_context": 100}, {"ai_context": 10**9},
+                {"ai_model": "zwei worte"}, {"ai_model": "x ; y"}):
+        assert _put(open_pdf=False, **bad).status_code == 400
+    assert output.load_config()["open_pdf"] is True
+
+
+def test_old_ini_without_new_ai_keys_uses_defaults():
+    output.CONFIG_PATH.write_text("[KI]\naktiv = ja\n", encoding="utf-8")
+    cfg = output.load_config()
+    assert (cfg["ai_model"], cfg["ai_thinking"], cfg["ai_context"]) == ("", "xhigh", 32768)
+
+
+def test_env_model_beats_ini_beats_default(monkeypatch):
+    monkeypatch.delenv("UNSLOTH_MODEL", raising=False)
+    assert ai.ai_settings()["model"] == ai.DEFAULT_MODEL
+    _put(ai_model="ini-model")
+    assert ai.ai_settings()["model"] == "ini-model"
+    monkeypatch.setenv("UNSLOTH_MODEL", "env-model")
+    assert ai.ai_settings()["model"] == "env-model"
+    assert client.get("/api/settings").json()["ai_model_forced_by_env"] is True

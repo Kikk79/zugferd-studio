@@ -448,6 +448,14 @@ document.addEventListener("DOMContentLoaded", () => {
     $("setOutputDir").value = cfg.output_dir || "";
     $("setOpenPdf").checked = !!cfg.open_pdf;
     $("setAiEnabled").checked = !!cfg.ai_enabled;
+    $("setAiModel").value = cfg.ai_model || "";
+    $("setAiModel").placeholder = "leer = Standard (" + cfg.ai_default_model + ")";
+    $("setAiModel").disabled = !!cfg.ai_model_forced_by_env;
+    $("aiModelNote").textContent = cfg.ai_model_forced_by_env
+      ? "Die Umgebungsvariable UNSLOTH_MODEL ist gesetzt und hat Vorrang: " + cfg.ai_model_effective
+      : "Verwendet wird: " + cfg.ai_model_effective;
+    $("setAiThinking").value = cfg.ai_thinking;
+    $("setAiContext").value = cfg.ai_context;
     $("aiEnvNote").classList.toggle("hidden", !cfg.ai_forced_by_env);
     $("settingsIni").textContent = cfg.ini_path ? "Gespeichert in: " + cfg.ini_path : "";
     $("setApiToken").value = "";
@@ -465,6 +473,9 @@ document.addEventListener("DOMContentLoaded", () => {
         output_dir: $("setOutputDir").value.trim(),
         open_pdf: $("setOpenPdf").checked,
         ai_enabled: $("setAiEnabled").checked,
+        ai_model: $("setAiModel").value.trim(),
+        ai_thinking: $("setAiThinking").value,
+        ai_context: parseInt($("setAiContext").value, 10) || 0,
         ...extra,
       };
       const response = await fetch("/api/settings", {
@@ -505,6 +516,22 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!data.cancelled) $("setOutputDir").value = data.path;
     } catch (err) {
       showToast("Fehler: " + err.message, "error");
+    }
+  });
+
+  $("btnLoadModels").addEventListener("click", async () => {
+    const btn = $("btnLoadModels");
+    btn.disabled = true;
+    try {
+      const response = await fetch("/api/ai-models");
+      if (!response.ok) throw new Error(await readError(response, "Modelle konnten nicht geladen werden"));
+      const { models } = await response.json();
+      $("aiModelList").innerHTML = models.map((m) => '<option value="' + escapeHtml(m) + '"></option>').join("");
+      showToast(models.length + " Modelle geladen - im Feld auswählen oder tippen.", "success");
+    } catch (err) {
+      showToast("Fehler: " + err.message, "error");
+    } finally {
+      btn.disabled = false;
     }
   });
 

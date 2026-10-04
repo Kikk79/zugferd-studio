@@ -20,9 +20,12 @@ from anonymize import (
 from paths import DATA_DIR
 
 DEFAULT_BASE_URL = "https://unsloth.aicolab.de/v1"
-DEFAULT_MODEL = "unsloth/Qwen3.8-27B-GGUF"
+DEFAULT_MODEL = "prism-ml/Ternary-Bonsai-2-27B-gguf:PQ2_0"
 _REQUEST_TIMEOUT_S = 90.0
-_MAX_PROMPT_TEXT_CHARS = 80_000
+_CHARS_PER_TOKEN = 3  # conservative for German text
+_IMAGE_TOKENS = 1_500  # budget per page image
+_RESERVED_TOKENS = 6_000  # system prompt, JSON scaffolding and the answer
+_MIN_PROMPT_TEXT_CHARS = 2_000
 _MAX_IMAGE_PAGES = 10
 _IMAGE_SCALE = 1.25
 
@@ -88,6 +91,59 @@ def ai_review_enabled() -> bool:
     from output import load_config
 
     return bool(load_config()["ai_enabled"])
+
+
+def ai_settings() -> dict[str, Any]:
+    """Model, thinking effort and context budget: UNSLOTH_MODEL beats the INI beats the default."""
+    from output import load_config
+
+    cfg = load_config()
+    return {
+        "model": os.environ.get("UNSLOTH_MODEL", "").strip() or cfg["ai_model"] or DEFAULT_MODEL,
+        "thinking": cfg["ai_thinking"],
+        "context": cfg["ai_context"],
+    }
+
+
+def _thinking_params(level: str) -> dict[str, Any]:
+    """Request fields for the thinking effort; 'standard' leaves the server default alone."""
+    if level == "aus":
+        return {"chat_template_kwargs": {"enable_thinking": False}}
+    effort = {"niedrig": "low", "mittel": "medium", "hoch": "high", "xhigh": "xhigh"}.get(level)
+    if not effort:
+        return {}
+    return {"reasoning_effort": effort, "chat_template_kwargs": {"enable_thinking": True}}
+
+
+def _text_budgets(context: int, pages: int, text_len: int, layout_len: int) -> tuple[int, int]:
+    """Character caps for (pdf_text, pdf_layout_text) so the prompt fits the context window."""
+    budget = max(
+        _MIN_PROMPT_TEXT_CHARS,
+        (context - _RESERVED_TOKENS - pages * _IMAGE_TOKENS) * _CHARS_PER_TOKEN,
+    )
+    layout_cap = min(layout_len, budget // 2)
+    return max(_MIN_PROMPT_TEXT_CHARS // 2, budget - layout_cap), layout_cap
+
+
+def list_ai_models(transport: httpx.BaseTransport | None = None) -> list[str]:
+    """Model ids offered by the configured endpoint (OpenAI-compatible GET /models)."""
+    api_key = load_api_key()
+    if not api_key:
+        raise InvoiceReviewError("Kein API-Token konfiguriert.")
+    base_url = os.environ.get("UNSLOTH_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    try:
+        with httpx.Client(timeout=15.0, transport=transport) as client:
+            response = client.get(f"{base_url}/models", headers={"Authorization": f"Bearer {api_key}"})
+    except httpx.HTTPError as exc:
+        raise InvoiceReviewError("Der KI-Endpunkt ist nicht erreichbar.") from exc
+    if response.status_code >= 400:
+        raise InvoiceReviewError(f"Der KI-Endpunkt antwortete mit HTTP {response.status_code}.")
+    try:
+        entries = response.json()["data"]
+        ids = [e["id"] for e in entries if isinstance(e, dict) and isinstance(e.get("id"), str)]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise InvoiceReviewError("Die Modellliste hatte kein erwartetes Format.") from exc
+    return sorted(set(ids))
 
 
 def _dotenv_values(path: Path) -> tuple[dict[str, str], str | None]:
@@ -385,17 +441,21 @@ def review_invoice_with_ai(
     else:
         privacy_notes.append("Seitenbilder wurden nicht übertragen (Empfänger nicht erkannt).")
 
+    settings = ai_settings()
     send_notes = [
         scrub_text(n, terms) for n in extraction_notes if isinstance(n, str) and not is_buyer_note(n)
     ]
     send_issues = [i for i in validation_issues if not is_buyer_issue(i)]
+    text_cap, layout_cap = _text_budgets(
+        settings["context"], len(images), len(send_text), len(send_layout)
+    )
     context = {
         "invoice_data_lokal": anonymise_invoice(invoice_data),
         "extraktionshinweise": send_notes,
         "validierungsbefunde": send_issues,
         "kundendaten": "anonymisiert oder entfernt - nicht Teil der Aufgabe",
-        "pdf_text": send_text[:_MAX_PROMPT_TEXT_CHARS],
-        "pdf_layout_text": send_layout[:_MAX_PROMPT_TEXT_CHARS],
+        "pdf_text": send_text[:text_cap],
+        "pdf_layout_text": send_layout[:layout_cap],
         "seitenbilder_abgedeckt": len(images),
         "pdf_seiten_begrenzt": pages_truncated,
     }
@@ -411,10 +471,11 @@ def review_invoice_with_ai(
         {"role": "user", "content": content},
     ]
     payload: dict[str, Any] = {
-        "model": os.environ.get("UNSLOTH_MODEL", DEFAULT_MODEL),
+        "model": settings["model"],
         "temperature": 0,
         "messages": messages,
         "response_format": {"type": "json_object"},
+        **_thinking_params(settings["thinking"]),
     }
     base_url = os.environ.get("UNSLOTH_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
@@ -425,7 +486,9 @@ def review_invoice_with_ai(
                 f"{base_url}/chat/completions", json=payload, headers=headers
             )
             if response.status_code in (400, 422):
-                payload.pop("response_format", None)
+                # Servers that reject the optional fields still get the plain request.
+                for optional in ("response_format", "reasoning_effort", "chat_template_kwargs"):
+                    payload.pop(optional, None)
                 response = client.post(
                     f"{base_url}/chat/completions", json=payload, headers=headers
                 )
