@@ -175,3 +175,48 @@ def test_env_model_beats_ini_beats_default(monkeypatch):
     monkeypatch.setenv("UNSLOTH_MODEL", "env-model")
     assert ai.ai_settings()["model"] == "env-model"
     assert client.get("/api/settings").json()["ai_model_forced_by_env"] is True
+
+
+def test_endpoint_roundtrip_through_ini_and_trailing_slash_is_dropped():
+    r = _put(ai_endpoint=" https://ki.example:8443/v1/ ")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ai_endpoint"] == "https://ki.example:8443/v1"
+    assert body["ai_endpoint_effective"] == "https://ki.example:8443/v1"
+    assert output.load_config()["ai_endpoint"] == "https://ki.example:8443/v1"
+    assert "endpunkt = https://ki.example:8443/v1" in output.CONFIG_PATH.read_text(encoding="utf-8")
+
+
+def test_endpoint_env_beats_ini_beats_default(monkeypatch):
+    monkeypatch.delenv("UNSLOTH_BASE_URL", raising=False)
+    assert ai.ai_base_url() == ai.DEFAULT_BASE_URL
+    assert ai.DEFAULT_BASE_URL == "https://fleet-represent-split-nightlife.trycloudflare.com/v1"
+    _put(ai_endpoint="https://ini.example/v1")
+    assert ai.ai_base_url() == "https://ini.example/v1"
+    monkeypatch.setenv("UNSLOTH_BASE_URL", "https://env.example/v1/")
+    assert ai.ai_base_url() == "https://env.example/v1"
+    body = client.get("/api/settings").json()
+    assert body["ai_endpoint_forced_by_env"] is True and body["ai_endpoint_effective"] == "https://env.example/v1"
+    assert body["ai_default_endpoint"] == ai.DEFAULT_BASE_URL
+
+
+def test_empty_endpoint_means_default(monkeypatch):
+    monkeypatch.delenv("UNSLOTH_BASE_URL", raising=False)
+    _put(ai_endpoint="https://ini.example/v1")
+    _put(ai_endpoint="  ")
+    assert output.load_config()["ai_endpoint"] == "" and ai.ai_base_url() == ai.DEFAULT_BASE_URL
+
+
+def test_invalid_endpoints_are_rejected_without_side_effects():
+    for bad in ("ki.example/v1", "ftp://ki.example/v1", "https://", "https://a b/v1", "https://u:p@ki.example/v1",
+                "https://ki.example/v1?x=1", "https://ki.example/v1#x", "https://ki.example/%41", "https://ki.example:99999/v1",
+                "https://ki.example/v1;x"):
+        r = _put(open_pdf=False, ai_endpoint=bad)
+        assert r.status_code == 400, bad
+        assert "Endpunkt" in r.json()["detail"]
+    assert output.load_config()["open_pdf"] is True
+
+
+def test_old_ini_without_endpoint_key_uses_default():
+    output.CONFIG_PATH.write_text("[KI]\naktiv = ja\nmodell = x\n", encoding="utf-8")
+    assert output.load_config()["ai_endpoint"] == ""

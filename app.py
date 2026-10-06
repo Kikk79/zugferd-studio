@@ -30,8 +30,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from ai_invoice_extractor import (
-    DEFAULT_MODEL, InvoiceReviewError, ai_settings, api_key_source, check_api_token, list_ai_models,
-    save_api_token,
+    DEFAULT_BASE_URL, DEFAULT_MODEL, InvoiceReviewError, ai_base_url, ai_settings, api_key_source,
+    check_api_token, list_ai_models, save_api_token,
 )
 from extractor import parse_uploaded_file
 from invoice_logic import (
@@ -97,6 +97,7 @@ class SettingsRequest(BaseModel):
     output_dir: str = ""
     open_pdf: bool = True
     ai_enabled: bool = True
+    ai_endpoint: str = ""
     ai_model: str = ""
     ai_thinking: str = "xhigh"
     ai_context: int = 32768
@@ -360,6 +361,10 @@ def _settings_payload() -> Dict[str, Any]:
         "output_dir": cfg["output_dir_raw"],
         "open_pdf": cfg["open_pdf"],
         "ai_enabled": cfg["ai_enabled"],
+        "ai_endpoint": cfg["ai_endpoint"],
+        "ai_default_endpoint": DEFAULT_BASE_URL,
+        "ai_endpoint_forced_by_env": bool(os.environ.get("UNSLOTH_BASE_URL", "").strip()),
+        "ai_endpoint_effective": ai_base_url(),
         "ai_model": cfg["ai_model"],
         "ai_default_model": DEFAULT_MODEL,
         "ai_model_forced_by_env": bool(os.environ.get("UNSLOTH_MODEL", "").strip()),
@@ -384,7 +389,7 @@ def put_settings(req: SettingsRequest, request: Request):
         token = check_api_token(req.api_token) if req.api_token is not None else None
         save_config(
             req.output_dir, req.open_pdf, req.ai_enabled,
-            req.ai_model, req.ai_thinking, req.ai_context,
+            req.ai_model, req.ai_thinking, req.ai_context, req.ai_endpoint,
         )
         if req.api_token is not None:
             save_api_token(token)

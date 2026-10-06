@@ -448,6 +448,12 @@ document.addEventListener("DOMContentLoaded", () => {
     $("setOutputDir").value = cfg.output_dir || "";
     $("setOpenPdf").checked = !!cfg.open_pdf;
     $("setAiEnabled").checked = !!cfg.ai_enabled;
+    $("setAiEndpoint").value = cfg.ai_endpoint || "";
+    $("setAiEndpoint").placeholder = "leer = Standard (" + cfg.ai_default_endpoint + ")";
+    $("setAiEndpoint").disabled = !!cfg.ai_endpoint_forced_by_env;
+    $("aiEndpointNote").textContent = cfg.ai_endpoint_forced_by_env
+      ? "Die Umgebungsvariable UNSLOTH_BASE_URL ist gesetzt und hat Vorrang: " + cfg.ai_endpoint_effective
+      : "Verwendet wird: " + cfg.ai_endpoint_effective + " (gilt nach dem Speichern, auch für \"Modelle laden\")";
     $("setAiModel").value = cfg.ai_model || "";
     $("setAiModel").placeholder = "leer = Standard (" + cfg.ai_default_model + ")";
     $("setAiModel").disabled = !!cfg.ai_model_forced_by_env;
@@ -473,6 +479,7 @@ document.addEventListener("DOMContentLoaded", () => {
         output_dir: $("setOutputDir").value.trim(),
         open_pdf: $("setOpenPdf").checked,
         ai_enabled: $("setAiEnabled").checked,
+        ai_endpoint: $("setAiEndpoint").value.trim(),
         ai_model: $("setAiModel").value.trim(),
         ai_thinking: $("setAiThinking").value,
         ai_context: parseInt($("setAiContext").value, 10) || 0,

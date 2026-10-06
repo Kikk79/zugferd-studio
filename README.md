@@ -4,7 +4,7 @@ Wandelt PDF- und Word-Rechnungen (DOCX/DOC) in ZUGFeRD-/Factur-X-E-Rechnungen um
 (Hybrid-PDF mit eingebettetem `factur-x.xml`, Profile **EN 16931** und **BASIC**).
 Die normale Texterkennung läuft lokal. Nur wenn Angaben fehlen, Extraktionshinweise entstehen
 oder die Validierung Auffälligkeiten findet, wird die Rechnung zur Prüfung an den
-OpenAI-kompatiblen Endpunkt `https://unsloth.aicolab.de/v1` gesendet. Dabei werden
+OpenAI-kompatiblen Endpunkt (Standard `https://fleet-represent-split-nightlife.trycloudflare.com/v1`, im Reiter *Einstellungen* änderbar) gesendet. Dabei werden
 Rechnungstext und bis zu zehn PDF-Seitenbilder übertragen – **ohne Kundendaten**: Der Rechnungsempfänger
 wird vorher anonymisiert (`anonymize.py`: Platzhalter „Max Mustermann“ / „Musterstraße 1“ / „12345 Musterstadt“
 in Daten und Text, per Textebene geschwärzt in den Seitenbildern; wo der Empfängerblock nicht erkannt wurde,
@@ -60,8 +60,8 @@ Der Token für den KI-Fallback wird im Reiter *Einstellungen* eingetragen und in
 `.env` neben der Anwendung gespeichert (die Seite zeigt ihn nie wieder an, nur ob einer gesetzt ist).
 Reihenfolge: Umgebungsvariable, dann `.env`, dann ein beim Bau eingebetteter Token. Bevorzugtes Format: `UNSLOTH_API_KEY=<Token>`. Ein einzelner Token ohne
 Variablennamen wird aus Kompatibilitätsgründen ebenfalls erkannt. Das Standardmodell ist
-`prism-ml/Ternary-Bonsai-2-27B-gguf:PQ2_0`; Endpunkt und Modell lassen sich mit `UNSLOTH_BASE_URL` und
-`UNSLOTH_MODEL` überschreiben (`UNSLOTH_MODEL` hat Vorrang vor der INI). Mit `aktiv = nein` im Abschnitt `[KI]` der INI (oder im Reiter *Einstellungen*) bleibt die Verarbeitung lokal;
+`prism-ml/Ternary-Bonsai-2-27B-gguf:PQ2_0`; Endpunkt und Modell stellt man im Reiter *Einstellungen* ein (INI: `endpunkt` und `modell` im Abschnitt `[KI]`; leer = Standard) oder
+überschreibt sie mit `UNSLOTH_BASE_URL` und `UNSLOTH_MODEL` (Umgebungsvariablen haben Vorrang vor der INI). Mit `aktiv = nein` im Abschnitt `[KI]` der INI (oder im Reiter *Einstellungen*) bleibt die Verarbeitung lokal;
 die Umgebungsvariable `ZUGFERD_AI_ENABLED` hat Vorrang vor der INI.
 
 Das Release enthält **keinen** Token. Für einen privaten Build kann `set EMBED_KEY=1` vor `build.bat` den

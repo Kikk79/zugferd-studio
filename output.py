@@ -8,6 +8,7 @@ ZUGFeRD-Studio.ini (next to the .exe, created on first start):
     oeffnen = ja    ; open the created PDF with the default program
     [KI]
     aktiv = ja      ; AI fallback for uncertain extractions (ja / nein)
+    endpunkt =      ; OpenAI-compatible base URL (https://host/v1); empty = built-in default
     modell =        ; model id; empty = built-in default
     denken = xhigh      ; thinking effort: standard / aus / niedrig / mittel / hoch / xhigh
     kontext = 32768 ; max. context in tokens that is sent to the model
@@ -22,6 +23,7 @@ import re
 import threading
 from pathlib import Path
 from typing import Any, Dict, Optional
+from urllib.parse import urlsplit
 
 from paths import DATA_DIR
 
@@ -48,6 +50,10 @@ oeffnen = {oeffnen}
 ; Rechnungstext und Seitenbilder an den KI-Server gesendet, bei "nein" bleibt alles lokal.
 aktiv = {aktiv}
 
+; Adresse des KI-Servers (OpenAI-kompatibel, z. B. https://server.example/v1).
+; Leer lassen = eingebaute Standardadresse. Die Umgebungsvariable UNSLOTH_BASE_URL hat Vorrang.
+endpunkt = {endpunkt}
+
 ; KI-Modell (ID wie vom Server gemeldet, z. B. prism-ml/Ternary-Bonsai-2-27B-gguf:PQ2_0).
 ; Leer lassen = eingebautes Standardmodell. Die Umgebungsvariable UNSLOTH_MODEL hat Vorrang.
 modell = {modell}
@@ -62,10 +68,32 @@ kontext = {kontext}
 """
 
 DEFAULT_AI_CONTEXT = 32768
+_URL_FORBIDDEN = re.compile(r"[\s;#%]")  # % would be read as INI interpolation
 MIN_AI_CONTEXT = 4096
 MAX_AI_CONTEXT = 262144
 DEFAULT_AI_THINKING = "xhigh"
 THINKING_LEVELS = ("standard", "aus", "niedrig", "mittel", "hoch", "xhigh")
+
+
+def check_base_url(url: str | None) -> str:
+    """Normalise a user-entered endpoint ('' = default); raises ValueError with a user-facing message."""
+    url = (url or "").strip().strip('"').rstrip("/")
+    if not url:
+        return ""
+    if _URL_FORBIDDEN.search(url):
+        raise ValueError("Die Endpunkt-Adresse darf keine Leerzeichen, Semikolons, # oder % enthalten.")
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("Die Endpunkt-Adresse muss mit http:// oder https:// beginnen (z. B. https://server/v1).")
+    if parts.username or parts.password:
+        raise ValueError("Zugangsdaten gehören nicht in die Endpunkt-Adresse; der Token wird separat eingetragen.")
+    if parts.query or parts.fragment:
+        raise ValueError("Die Endpunkt-Adresse darf keine Parameter (? oder #) enthalten.")
+    try:
+        parts.port  # noqa: B018 — raises ValueError for an invalid port
+    except ValueError as exc:
+        raise ValueError("Die Endpunkt-Adresse enthält einen ungültigen Port.") from exc
+    return url
 
 
 def render_config(
@@ -75,11 +103,13 @@ def render_config(
     ai_model: str = "",
     ai_thinking: str = DEFAULT_AI_THINKING,
     ai_context: int = DEFAULT_AI_CONTEXT,
+    ai_endpoint: str = "",
 ) -> str:
     return _CONFIG_TEMPLATE.format(
         pfad=" ".join(output_dir.split()),
         oeffnen="ja" if open_pdf else "nein",
         aktiv="ja" if ai_enabled else "nein",
+        endpunkt=" ".join(ai_endpoint.split()),
         modell=" ".join(ai_model.split()),
         denken=ai_thinking,
         kontext=ai_context,
@@ -110,6 +140,7 @@ def load_config() -> Dict[str, Any]:
     raw = parser.get("Ausgabe", "pfad", fallback="").strip().strip('"')
     open_pdf = parser.get("Ausgabe", "oeffnen", fallback="ja").strip().lower()
     ai = parser.get("KI", "aktiv", fallback="ja").strip().lower()
+    ai_endpoint = parser.get("KI", "endpunkt", fallback="").strip().strip('"').rstrip("/")
     ai_model = parser.get("KI", "modell", fallback="").strip().strip('"')
     thinking = parser.get("KI", "denken", fallback=DEFAULT_AI_THINKING).strip().lower()
     try:
@@ -121,6 +152,7 @@ def load_config() -> Dict[str, Any]:
         "output_dir_raw": raw,
         "open_pdf": open_pdf not in _FALSE_WORDS,
         "ai_enabled": ai not in _FALSE_WORDS,
+        "ai_endpoint": ai_endpoint,
         "ai_model": ai_model,
         "ai_thinking": thinking if thinking in THINKING_LEVELS else DEFAULT_AI_THINKING,
         "ai_context": min(max(context, MIN_AI_CONTEXT), MAX_AI_CONTEXT),
@@ -134,8 +166,10 @@ def save_config(
     ai_model: str = "",
     ai_thinking: str = DEFAULT_AI_THINKING,
     ai_context: int = DEFAULT_AI_CONTEXT,
+    ai_endpoint: str = "",
 ) -> Dict[str, Any]:
     """Validate and write the settings. Raises ValueError with a user-facing message."""
+    ai_endpoint = check_base_url(ai_endpoint)
     ai_model = (ai_model or "").strip().strip('"')
     if re.search(r"[\s;#]", ai_model):
         raise ValueError("Die Modell-ID darf keine Leerzeichen, Semikolons oder # enthalten.")
@@ -154,7 +188,7 @@ def save_config(
             raise ValueError("Der Ausgabeordner ist nicht beschreibbar.")
     try:
         tmp = CONFIG_PATH.with_name(CONFIG_PATH.name + ".tmp")
-        tmp.write_text(render_config(raw, open_pdf, ai_enabled, ai_model, ai_thinking, ai_context), encoding="utf-8")
+        tmp.write_text(render_config(raw, open_pdf, ai_enabled, ai_model, ai_thinking, ai_context, ai_endpoint), encoding="utf-8")
         os.replace(tmp, CONFIG_PATH)
     except OSError as exc:
         raise ValueError(f"Einstellungen konnten nicht gespeichert werden ({CONFIG_PATH}): {exc}") from exc

@@ -58,6 +58,9 @@ Mit **Speichern** gelten sie sofort, ein Neustart ist nicht nötig.
   erstellten Dateien fest. Der Ordner wird bei Bedarf angelegt.
 - **Erstellte PDF automatisch öffnen:** abwählen, wenn die PDF nach dem Erstellen nicht aufgehen soll.
 - **KI-Prüfung als Fallback verwenden** und **API-Token:** siehe nächster Abschnitt.
+- **KI-Endpunkt:** Die Adresse des KI-Servers (OpenAI-kompatibel, z. B. `https://server/v1`). Leer bedeutet die
+  eingebaute Standardadresse. Die Umgebungsvariable `UNSLOTH_BASE_URL` hat Vorrang; die Seite zeigt dann an,
+  welche Adresse gilt. Nach einer Änderung zuerst **Speichern**, dann **Modelle laden**.
 - **KI-Modell, Denkaufwand und Maximaler Kontext:** Das Modell wählen Sie aus der Liste des Servers
   (**Modelle laden**) oder tippen die ID ein; leer bedeutet Standardmodell. Der Denkaufwand (Standard, Aus,
   Niedrig, Mittel, Hoch, Sehr hoch) bestimmt, wie gründlich die KI nachdenkt – mehr Aufwand ist genauer, dauert
@@ -72,7 +75,7 @@ Sie lässt sich bei Bedarf auch mit einem Texteditor ändern.
 Die normale Texterkennung läuft **lokal auf Ihrem Rechner**. Nur wenn Angaben fehlen, die Erkennung
 Auffälligkeiten meldet oder die Prüfung Fehler findet, wird die Rechnung zusätzlich von einer KI
 geprüft. Dafür werden der **Rechnungstext und bis zu zehn Seitenbilder** an den Server
-`https://unsloth.aicolab.de/v1` übertragen – **ohne Kundendaten** (siehe unten). Dafür brauchen Sie einen **API-Token**, den Sie einmalig im Reiter
+`https://fleet-represent-split-nightlife.trycloudflare.com/v1` übertragen – **ohne Kundendaten** (siehe unten). Dafür brauchen Sie einen **API-Token**, den Sie einmalig im Reiter
 **Einstellungen** unter „API-Token für die KI-Prüfung“ eintragen und mit **Speichern** übernehmen. Ohne Token
 läuft das Programm normal weiter, nur die KI-Prüfung steht dann nicht zur Verfügung.
 

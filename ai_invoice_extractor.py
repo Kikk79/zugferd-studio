@@ -19,7 +19,7 @@ from anonymize import (
 )
 from paths import DATA_DIR
 
-DEFAULT_BASE_URL = "https://unsloth.aicolab.de/v1"
+DEFAULT_BASE_URL = "https://fleet-represent-split-nightlife.trycloudflare.com/v1"
 DEFAULT_MODEL = "prism-ml/Ternary-Bonsai-2-27B-gguf:PQ2_0"
 _REQUEST_TIMEOUT_S = 90.0
 _CHARS_PER_TOKEN = 3  # conservative for German text
@@ -93,6 +93,14 @@ def ai_review_enabled() -> bool:
     return bool(load_config()["ai_enabled"])
 
 
+def ai_base_url() -> str:
+    """Endpoint: UNSLOTH_BASE_URL beats the INI beats the built-in default."""
+    from output import load_config
+
+    env = os.environ.get("UNSLOTH_BASE_URL", "").strip()
+    return (env or load_config()["ai_endpoint"] or DEFAULT_BASE_URL).rstrip("/")
+
+
 def ai_settings() -> dict[str, Any]:
     """Model, thinking effort and context budget: UNSLOTH_MODEL beats the INI beats the default."""
     from output import load_config
@@ -130,7 +138,7 @@ def list_ai_models(transport: httpx.BaseTransport | None = None) -> list[str]:
     api_key = load_api_key()
     if not api_key:
         raise InvoiceReviewError("Kein API-Token konfiguriert.")
-    base_url = os.environ.get("UNSLOTH_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    base_url = ai_base_url()
     try:
         with httpx.Client(timeout=15.0, transport=transport) as client:
             response = client.get(f"{base_url}/models", headers={"Authorization": f"Bearer {api_key}"})
@@ -477,7 +485,7 @@ def review_invoice_with_ai(
         "response_format": {"type": "json_object"},
         **_thinking_params(settings["thinking"]),
     }
-    base_url = os.environ.get("UNSLOTH_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
+    base_url = ai_base_url()
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     try:
