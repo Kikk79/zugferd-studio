@@ -27,11 +27,11 @@ IF ERRORLEVEL 1 (
 )
 
 echo.
-echo Starte Web-Server auf http://localhost:8000 ...
+echo Starte Web-Server auf http://localhost:8101 ...
 echo Zum Beenden dieses Fenster schliessen oder Strg+C druecken.
 echo.
 
-start "" cmd /c "timeout /t 3 /nobreak >nul & start http://localhost:8000"
-.venv\Scripts\python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
+start "" cmd /c "timeout /t 3 /nobreak >nul & start http://localhost:8101"
+.venv\Scripts\python.exe -m uvicorn app:app --host 127.0.0.1 --port 8101
 
 pause

@@ -24,7 +24,7 @@ import app as app_module
 from paths import WORK_DIR
 
 HOST = "127.0.0.1"
-PREFERRED_PORT = 8000
+PREFERRED_PORT = 8101
 INSTANCE_FILE = WORK_DIR / "instance.json"
 
 

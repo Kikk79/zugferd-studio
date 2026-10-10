@@ -10,6 +10,7 @@ pdf_renderer.py - Creates invoice PDFs (sample / fallback) and converts Word fil
 
 import io
 import os
+import shutil
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -220,8 +221,7 @@ def convert_docx_to_pdf(docx_path: str) -> Tuple[bytes, bool]:
         word_error = exc
     finally:
         try:
-            target.unlink(missing_ok=True)
-            target.parent.rmdir()
+            shutil.rmtree(target.parent, ignore_errors=True)
         except OSError:
             pass
 

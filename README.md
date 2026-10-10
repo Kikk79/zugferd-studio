@@ -18,7 +18,7 @@ prüfpflichtige Vorschläge; danach wird die ZUGFeRD-Datei nicht automatisch erz
 ## Start
 
 Doppelklick auf `start.bat` (oder `start.ps1`). Beim ersten Start wird `.venv` angelegt und
-`requirements.txt` installiert. Die Oberfläche öffnet sich unter <http://localhost:8000>.
+`requirements.txt` installiert. Die Oberfläche öffnet sich unter <http://localhost:8101>.
 
 1. Rechnung öffnen – auf einem dieser Wege:
    - **Datei öffnen…** (Windows-Dialog),

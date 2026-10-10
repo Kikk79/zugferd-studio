@@ -15,6 +15,6 @@ Write-Host "Pruefe erforderliche Pakete..." -ForegroundColor Yellow
 & ".venv\Scripts\python.exe" -m pip install -q -r requirements.txt
 if ($LASTEXITCODE -ne 0) { Write-Host "Paketinstallation fehlgeschlagen." -ForegroundColor Red; exit 1 }
 
-Write-Host "Starte Web-Server auf http://localhost:8000 ..." -ForegroundColor Green
-Start-Job { Start-Sleep 3; Start-Process "http://localhost:8000" } | Out-Null
-& ".venv\Scripts\python.exe" -m uvicorn app:app --host 127.0.0.1 --port 8000
+Write-Host "Starte Web-Server auf http://localhost:8101 ..." -ForegroundColor Green
+Start-Job { Start-Sleep 3; Start-Process "http://localhost:8101" } | Out-Null
+& ".venv\Scripts\python.exe" -m uvicorn app:app --host 127.0.0.1 --port 8101

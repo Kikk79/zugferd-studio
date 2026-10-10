@@ -104,7 +104,7 @@ def test_page_images_are_blanked_where_the_customer_stood(invoice):
         y0, y1 = min(b[1] for b in boxes), max(b[3] for b in boxes)
         box = ((x0 - left) * scale, (top - y1) * scale, (x1 - left) * scale, (top - y0) * scale)
         region = image.crop(tuple(int(v) for v in box)).convert("L")
-        return sum(1 for px in region.getdata() if px < 128)
+        return sum(1 for px in region.get_flattened_data() if px < 128)
 
     assert dark_pixels("Kunde AG") > 0 and dark_pixels("Muster GmbH") > 0  # visible before
     terms = anonymize.build_terms(invoice["buyer"], invoice["seller"])

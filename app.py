@@ -72,7 +72,7 @@ app = FastAPI(
 @app.middleware("http")
 async def reject_foreign_origins(request: Request, call_next):
     """Local-only tool: a state-changing request from another website is refused."""
-    if request.method == "POST":
+    if request.method in ("POST", "PUT", "DELETE", "GET"):
         origin = request.headers.get("origin")
         if origin and not re.fullmatch(r"https?://(127\.0\.0\.1|localhost)(:\d+)?", origin):
             return JSONResponse(status_code=403, content={"detail": "Fremder Ursprung nicht erlaubt."})
@@ -149,11 +149,17 @@ def _write_meta(folder: Path, meta: Dict[str, Any]) -> None:
     (folder / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL"} | {f"COM{i}" for i in range(1, 10)} | {f"LPT{i}" for i in range(1, 10)}
+MAX_NAME_CHARS = 120
+
 def _safe_filename(name: str, default: str = "rechnung.pdf") -> str:
     """Strip any path components / odd characters from a client-supplied filename."""
     base = Path((name or "").replace("\\", "/")).name
     base = re.sub(r"[^\w.\- ()äöüÄÖÜß]", "_", base).strip(" .")
-    return base or default
+    stem = base.split(".")[0].upper()
+    if stem in RESERVED_NAMES:
+        base = "rechnung" + (base[len(stem):] or ".pdf")
+    return (base[:MAX_NAME_CHARS] or default)
 
 
 def _profile(value: str) -> str:
@@ -551,4 +557,4 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="127.0.0.1", port=8000)
+    uvicorn.run("app:app", host="127.0.0.1", port=8101)
